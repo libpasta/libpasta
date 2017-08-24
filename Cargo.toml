@@ -1,0 +1,42 @@
+[package]
+name = "libpasta"
+version = "0.0.1"
+authors = ["Sam Scott <me@samjs.co.uk>"]
+
+[dependencies]
+argon2rs = { version = "0.2" }
+cargon = "*"
+clap = "2.23"
+data-encoding = "1.2"
+error-chain = "0.11.0-rc.2"
+fastpbkdf2 = "*"
+lazy_static = "*"
+log = "0.3"
+optimization = "0.1"
+num-traits = "*"
+regex = "0.2"
+ring-pwhash = "0.11"
+rpassword = "0.4"
+rust-crypto = "0.2"
+serde = "1.0.2"
+serde_bytes = "0.10"
+serde_derive = "1.0.4"
+serde_json = "1.0.2"
+serde_mcf = { git = "https://github.com/libpasta/serde_mcf" }
+serde_yaml = "0.7"
+sys-info = "0.4"
+time = "0.1.36"
+
+[dependencies.ring]
+version = "0.11"
+default-features = false
+features = ["use_heap"]
+
+
+[features]
+bench = []
+simd = ["argon2rs/simd"]
+
+[[bin]]
+name = "tune"
+doc = false
