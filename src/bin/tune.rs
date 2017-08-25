@@ -333,6 +333,7 @@ mod cost {
         m_asic * mem
     }
 
+    #[allow(dead_code)]
     pub fn scrypt_cost_fn(cx: f64, mx: f64, scale: f64) -> (f64, f64) {
         if scale < 1.0 || scale > cx {
             (f64::MAX, f64::MAX)
