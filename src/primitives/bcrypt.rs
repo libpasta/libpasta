@@ -8,7 +8,7 @@ mod native {
 
     use primitives::{Primitive, PrimitiveImpl};
     use primitives::sod::Sod;
-    
+
     use serde_mcf::Hashes;
 
     use std::fmt;
@@ -34,22 +34,20 @@ mod native {
             let mut hash = [0_u8; 24];
             let mut pw = [0_u8; 72];
             // Bcrypt inputs need to be at most 72 bytes
-            // with a trailing zero byte only if < 72 bytes 
+            // with a trailing zero byte only if < 72 bytes
             let pw = if password.len() > 71 {
                 pw[..72].copy_from_slice(&password[..72]);
                 &pw[..]
             } else {
                 pw[..password.len()].copy_from_slice(password);
-                &pw[..password.len()+1]
+                &pw[..password.len() + 1]
             };
             bcrypt(self.cost, salt, pw, &mut hash);
             hash[..23].to_vec()
         }
 
         fn params_as_vec(&self) -> Vec<(&'static str, String)> {
-            vec![
-                ("cost", self.cost.to_string()),
-            ]
+            vec![("cost", self.cost.to_string())]
         }
 
         fn hash_id(&self) -> Hashes {
@@ -71,9 +69,7 @@ mod native {
         }
 
         fn new_impl(cost: u32) -> Self {
-            Bcrypt {
-                cost: cost
-            }.into()
+            Bcrypt { cost: cost }.into()
         }
 
         /// Get the default `Bcrypt` parameter set.
@@ -105,27 +101,33 @@ mod bcrypt_test {
 
     fn openwall_test(hash: &str, password: &[u8]) {
         let pwd_hash: Output = mcf::from_str(&hash).unwrap();
-        assert_eq!(pwd_hash.hash, pwd_hash.alg.hash_with_salt(password, &pwd_hash.salt));
+        assert_eq!(pwd_hash.hash,
+                   pwd_hash.alg.hash_with_salt(password, &pwd_hash.salt));
     }
 
     // Test the internal Bcrypt implementation against the openwall test vectors.
     // Note that we currently are non compatible with "2x" variant hashes.
     #[test]
     fn openwall_test_vectors() {
-        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW", b"U*U");
-        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.VGOzA784oUp/Z0DY336zx7pLYAy0lwK", b"U*U*");
-        openwall_test("$2a$05$XXXXXXXXXXXXXXXXXXXXXOAcXxm9kjPGEMsLznoKqmqw7tc8WCx4a", b"U*U*U");
-        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.7uG0VCzI2bS7j6ymqJi9CdcdxiRTWNy", b"");
+        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW",
+                      b"U*U");
+        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.VGOzA784oUp/Z0DY336zx7pLYAy0lwK",
+                      b"U*U*");
+        openwall_test("$2a$05$XXXXXXXXXXXXXXXXXXXXXOAcXxm9kjPGEMsLznoKqmqw7tc8WCx4a",
+                      b"U*U*U");
+        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.7uG0VCzI2bS7j6ymqJi9CdcdxiRTWNy",
+                      b"");
         openwall_test("$2a$05$abcdefghijklmnopqrstuu5s2v8.iXieOjg/.AySBTTZIIVFJeBui",
-            b"0123456789abcdefghijklmnopqrstuvwxyz\
+                      b"0123456789abcdefghijklmnopqrstuvwxyz\
              ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\
              chars after 72 are ignored");
         // openwall_test("$2x$05$/OK.fbVrR/bpIqNJ5ianF.CE5elHaaO4EbggVDjb8P19RukzXSM3e", b"\xa3");
-        openwall_test("$2y$05$/OK.fbVrR/bpIqNJ5ianF.Sa7shbm4.OzKpvFnX1pQLmQW96oUlCq", b"\xa3");
+        openwall_test("$2y$05$/OK.fbVrR/bpIqNJ5ianF.Sa7shbm4.OzKpvFnX1pQLmQW96oUlCq",
+                      b"\xa3");
         // openwall_test("$2x$05$6bNw2HLQYeqHYyBfLMsv/OiwqTymGIGzFsA4hOTWebfehXHNprcAS", b"\xd1\x91");
         // openwall_test("$2x$05$6bNw2HLQYeqHYyBfLMsv/O9LIGgn8OMzuDoHfof8AQimSGfcSWxnS", b"\xd0\xc1\xd2\xcf\xcc\xd8");
         openwall_test("$2a$05$/OK.fbVrR/bpIqNJ5ianF.swQOIzjOiJ9GHEPuhEkvqrUyvWhEMx6",
-           b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
+                      b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
@@ -133,15 +135,16 @@ mod bcrypt_test {
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              chars after 72 are ignored as usual");
         openwall_test("$2a$05$/OK.fbVrR/bpIqNJ5ianF.R9xrDjiycxMbQE2bp.vgqlYpW5wx2yy",
-            b"\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
+                      b"\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55");
-        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.7uG0VCzI2bS7j6ymqJi9CdcdxiRTWNy", b"");
+        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.7uG0VCzI2bS7j6ymqJi9CdcdxiRTWNy",
+                      b"");
         openwall_test("$2a$05$/OK.fbVrR/bpIqNJ5ianF.9tQZzcJfm3uj2NvJ/n5xkhpqLrMpWCe",
-            b"\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
+                      b"\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
               \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
               \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
               \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
@@ -149,4 +152,3 @@ mod bcrypt_test {
               \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff");
     }
 }
-

@@ -20,17 +20,16 @@ fn auth_user(user: &mut User) {
     if libpasta::verify_password_update_hash(&mut user.password_hash, password) {
         println!("Password correct, new hash: \n{}", user.password_hash);
     } else {
-        println!("Password incorrect, hash unchanged: \n{}", user.password_hash);
+        println!("Password incorrect, hash unchanged: \n{}",
+                 user.password_hash);
     }
 }
 
 fn main() {
-    let mut users = vec![
-        User { password_hash: deprected_hash("hunter2") },
-        User { password_hash: deprected_hash("hunter3") },
-        User { password_hash: deprected_hash("letmein") },
-        User { password_hash: deprected_hash("password") },
-    ];
+    let mut users = vec![User { password_hash: deprected_hash("hunter2") },
+                         User { password_hash: deprected_hash("hunter3") },
+                         User { password_hash: deprected_hash("letmein") },
+                         User { password_hash: deprected_hash("password") }];
 
     migrate_users(&mut users);
     println!("Passwords migrated: {:?}", users);
@@ -38,7 +37,7 @@ fn main() {
 }
 
 // Do not use this code as a good example of how to do hashing.
-// This is intentionally awkward 
+// This is intentionally awkward
 use libpasta::{hashing, primitives};
 
 fn deprected_hash(password: &str) -> String {

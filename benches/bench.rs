@@ -28,12 +28,13 @@ fn raw_argon2(_b: &mut Bencher) {
     let password = [0; 16];
     let salt = [1; 16];
     let t_cost = 3;
-    let thread_test = [1,2,4,8];
+    let thread_test = [1, 2, 4, 8];
     let mut out = [0u8; 32];
-    let mut m_cost = 1<<10;
-    while m_cost <= 1<<22 {
+    let mut m_cost = 1 << 10;
+    while m_cost <= 1 << 22 {
         for threads in &thread_test {
-            let alg = argon2rs::Argon2::new(t_cost, *threads, m_cost, argon2rs::Variant::Argon2i).unwrap();
+            let alg = argon2rs::Argon2::new(t_cost, *threads, m_cost, argon2rs::Variant::Argon2i)
+                .unwrap();
             let mut alg_ffi = mk_cargon(&alg, &mut out, &password, &salt, &[], &[]);
             let prim: Primitive = Argon2::new(t_cost, *threads, m_cost);
             let pastalg = Algorithm::Single(prim);
@@ -47,7 +48,9 @@ fn raw_argon2(_b: &mut Bencher) {
 
             let start = time::precise_time_ns();
             for _ in 0..reps {
-                unsafe { cargon::argon2_ctx(&mut alg_ffi, argon2rs::Variant::Argon2i as usize); }
+                unsafe {
+                    cargon::argon2_ctx(&mut alg_ffi, argon2rs::Variant::Argon2i as usize);
+                }
             }
             let end = time::precise_time_ns();
             let ffi = (end - start) as f64;
@@ -59,13 +62,18 @@ fn raw_argon2(_b: &mut Bencher) {
             let end = time::precise_time_ns();
             let libp = (end - start) as f64;
 
-            println!("{} {} iterations  {} MiB {} threads ... {} reps", "Argon2i", t_cost,m_cost/1024, threads, reps);
-            println!("Native:   {:.4} seconds", native/ 1_000_000_000f64);
-            println!("libpasta: {:.4} seconds", libp/ 1_000_000_000f64);
-            println!("FFI:      {:.4} seconds\n", ffi/ 1_000_000_000f64);
+            println!("{} {} iterations  {} MiB {} threads ... {} reps",
+                     "Argon2i",
+                     t_cost,
+                     m_cost / 1024,
+                     threads,
+                     reps);
+            println!("Native:   {:.4} seconds", native / 1_000_000_000f64);
+            println!("libpasta: {:.4} seconds", libp / 1_000_000_000f64);
+            println!("FFI:      {:.4} seconds\n", ffi / 1_000_000_000f64);
         }
         m_cost <<= 1;
-        
+
     }
 }
 
@@ -73,9 +81,7 @@ fn raw_argon2(_b: &mut Bencher) {
 #[bench]
 fn pasta_hash_static(b: &mut Bencher) {
     let password = "hunter2";
-    b.iter(|| {
-        libpasta::hash_password(password.to_owned())
-    })
+    b.iter(|| libpasta::hash_password(password.to_owned()))
 }
 
 #[bench]
@@ -89,7 +95,12 @@ fn pasta_hash_dyn(b: &mut Bencher) {
 }
 
 use std::ptr;
-fn mk_cargon(a2: &argon2rs::Argon2, out: &mut [u8], p: &[u8], s: &[u8], k: &[u8], x: &[u8])
+fn mk_cargon(a2: &argon2rs::Argon2,
+             out: &mut [u8],
+             p: &[u8],
+             s: &[u8],
+             k: &[u8],
+             x: &[u8])
              -> cargon::CargonContext {
     let (_, kib, passes, lanes) = a2.params();
     cargon::CargonContext {

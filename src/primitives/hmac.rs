@@ -25,9 +25,10 @@ mod hmac_ring {
             let mut key_id = [0_u8; 32];
             key_id.copy_from_slice(digest::digest(&digest::SHA512_256, key).as_ref());
             Self {
-                key: hmac::SigningKey::new(h, key),
-                key_id,
-            }.into()
+                    key: hmac::SigningKey::new(h, key),
+                    key_id: key_id,
+                }
+                .into()
         }
 
         /// Gets a default HMAC instance, generating a fresh new key.
@@ -38,19 +39,20 @@ mod hmac_ring {
         fn new() -> Self {
             let rng = rand::SystemRandom::new();
             let mut key_id = [0_u8; 32];
-            let key = hmac::SigningKey::generate_serializable(&digest::SHA256, &rng, &mut key_id).expect("could not generate random bytes for key");
+            let key = hmac::SigningKey::generate_serializable(&digest::SHA256, &rng, &mut key_id)
+                .expect("could not generate random bytes for key");
             let digest = digest::digest(&digest::SHA512_256, &key_id);
             ::key::KEY_STORE.insert(base64::encode_nopad(digest.as_ref()), &key_id[..]);
             key_id.copy_from_slice(digest.as_ref());
             Self {
-                key, key_id,
+                key: key,
+                key_id: key_id,
             }
         }
 
         fn key_id(&self) -> String {
             base64::encode_nopad(&self.key_id)
         }
-
     }
 
     impl ::primitives::PrimitiveImpl for Hmac {
@@ -64,10 +66,8 @@ mod hmac_ring {
         /// Convert parameters into a vector of (key, value) tuples
         /// for serializing.
         fn params_as_vec(&self) -> Vec<(&'static str, String)> {
-            vec![
-                ("key_id", self.key_id()),
-                ("h", super::super::hash_to_id(self.key.digest_algorithm())),
-            ]
+            vec![("key_id", self.key_id()),
+                 ("h", super::super::hash_to_id(self.key.digest_algorithm()))]
         }
 
         fn hash_id(&self) -> Hashes {
@@ -77,7 +77,10 @@ mod hmac_ring {
 
     impl fmt::Debug for Hmac {
         fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-            write!(f, "Hmac, KeyID: {}, Hash: {}", self.key_id(), super::super::hash_to_id(self.key.digest_algorithm()))
+            write!(f,
+                   "Hmac, KeyID: {}, Hash: {}",
+                   self.key_id(),
+                   super::super::hash_to_id(self.key.digest_algorithm()))
         }
     }
 
@@ -102,7 +105,10 @@ mod test {
         let salt = ::get_salt();
         let hash = hmac_params.compute(&inner_params.compute(password.as_bytes(), &salt), &salt);
         let hash2 = hmac_params.compute(&inner_params.compute(password.as_bytes(), &salt), &salt);
-        let params = Algorithm::Nested { outer: hmac_params.into(), inner: Box::new(Algorithm::Single(inner_params.into())) };
+        let params = Algorithm::Nested {
+            outer: hmac_params.into(),
+            inner: Box::new(Algorithm::Single(inner_params.into())),
+        };
         assert_eq!(hash, hash2);
         let out = Output {
             alg: params,
@@ -115,7 +121,10 @@ mod test {
     #[test]
     fn hash_verify_works() {
         let password = "hunter2";
-        let algorithm = Algorithm::Nested { outer: super::Hmac::default().into(), inner: Box::new(Algorithm::Single(::primitives::Scrypt::default())) };
+        let algorithm = Algorithm::Nested {
+            outer: super::Hmac::default().into(),
+            inner: Box::new(Algorithm::Single(::primitives::Scrypt::default())),
+        };
         let hash = algorithm.hash(password.to_string().into()).unwrap();
         assert!(hash.verify(password.to_string().into()));
     }

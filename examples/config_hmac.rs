@@ -7,7 +7,7 @@ fn main() {
     // Use scrypt as the default inner hash
     let hash_primitive = libpasta::primitives::Scrypt::default();
     libpasta::config::set_primitive(hash_primitive);
-    
+
     // Some proper way of getting a key
     let key = b"yellow submarine";
     libpasta::config::add_key(key);

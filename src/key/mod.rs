@@ -29,16 +29,17 @@ pub trait Store {
 
 impl LocalStore {
     fn new() -> Self {
-        Self {
-            store: RwLock::new(HashMap::new()),
-        }
-    }    
+        Self { store: RwLock::new(HashMap::new()) }
+    }
 }
 
 impl Store for LocalStore {
     /// Insert a new key into the `KeyStore`.
     fn insert(&self, key_id: String, key: &[u8]) {
-        let _ = self.store.write().expect("could not get write on key store").insert(key_id, key.to_vec());
+        let _ = self.store
+            .write()
+            .expect("could not get write on key store")
+            .insert(key_id, key.to_vec());
     }
 
     /// Get a key from the `KeyStore`.

@@ -23,14 +23,12 @@ fn main() {
         (@arg printconfig: -p --print                "Output the final result in the configuration file format")
     );
 
-    app = app.arg(
-        Arg::with_name("algorithm")
-          .short("a")
-          .long("algorithm")
-          .takes_value(true)
-          .possible_values(&["argon2i", "bcrypt", "scrypt"])
-          .help("Choose the algorithm to tune (default: argon2i)")
-    );
+    app = app.arg(Arg::with_name("algorithm")
+        .short("a")
+        .long("algorithm")
+        .takes_value(true)
+        .possible_values(&["argon2i", "bcrypt", "scrypt"])
+        .help("Choose the algorithm to tune (default: argon2i)"));
 
     let m = app.get_matches();
 
@@ -39,16 +37,12 @@ fn main() {
     let target = t.parse::<f64>().expect("Please provide a numeric value for target");
 
     let prim = match alg {
-        "argon2i" => {
-            tune_argon(target)
-        },
-        "bcrypt" => {
-            tune_bcrypt(target)
-        },
-        "scrypt" => {
-            tune_scrypt(target)
-        },
-        _ => { panic!("Unsupported variant"); }
+        "argon2i" => tune_argon(target),
+        "bcrypt" => tune_bcrypt(target),
+        "scrypt" => tune_scrypt(target),
+        _ => {
+            panic!("Unsupported variant");
+        }
     };
 
     config::set_primitive(prim);
@@ -59,7 +53,8 @@ fn main() {
 }
 
 fn tune_argon(target: f64) -> Primitive {
-    let (_, rec_kib, rec_pass, rec_lanes) = argon2rs::Argon2::default(argon2rs::Variant::Argon2i).params();
+    let (_, rec_kib, rec_pass, rec_lanes) = argon2rs::Argon2::default(argon2rs::Variant::Argon2i)
+        .params();
     let repetitions = 10u8;
     let meminfo = sys_info::mem_info().unwrap();
     let cpunum = sys_info::cpu_num().unwrap();
@@ -67,7 +62,7 @@ fn tune_argon(target: f64) -> Primitive {
 
     // By default attempt to use at most 12.5% of system memory
     let max_memory = (meminfo.total >> 3) as u32;
-    let mut memory = 1<<4;
+    let mut memory = 1 << 4;
 
 
     // let memory = 1<<14; // 16MiB
@@ -89,13 +84,21 @@ fn tune_argon(target: f64) -> Primitive {
         }
         let end = time::precise_time_ns();
         elapsed = (end - start) as f64 / repetitions as f64;
-        println!("passes = {}, threads = {}, memory = {} {:.4} s", 3, 1, memory, elapsed / 1_000_000_000f64);
+        println!("passes = {}, threads = {}, memory = {} {:.4} s",
+                 3,
+                 1,
+                 memory,
+                 elapsed / 1_000_000_000f64);
     }
     memory >>= 1;
 
-    println!("Maximum amount of memory (capped at {:.0}) to achieve < {:.2} s hash = {} KiB", max_memory, timelimit / 1_000_000_000f64, memory);
+    println!("Maximum amount of memory (capped at {:.0}) to achieve < {:.2} s hash = {} KiB",
+             max_memory,
+             timelimit / 1_000_000_000f64,
+             memory);
     if memory < rec_kib {
-        println!("Unable to reach minimum recommended parameters for requested timeframe. Falling back to defaults.");
+        println!("Unable to reach minimum recommended parameters for requested timeframe. \
+                  Falling back to defaults.");
         memory = rec_kib;
     }
 
@@ -106,7 +109,7 @@ fn tune_argon(target: f64) -> Primitive {
     let mut highest_passes = 1;
     let mut best_lanes = 1;
 
-    // Intentionally use at most N-1 CPUs to avoid consuming system. 
+    // Intentionally use at most N-1 CPUs to avoid consuming system.
     for lanes in 1..cpunum {
         elapsed = 0f64;
         passes = highest_passes + 1;
@@ -120,7 +123,11 @@ fn tune_argon(target: f64) -> Primitive {
             }
             let end = time::precise_time_ns();
             elapsed = (end - start) as f64 / repetitions as f64;
-            println!("passes = {:2}, threads = {}, memory = {} {:.4} s", passes, lanes, memory, elapsed / 1_000_000_000f64);
+            println!("passes = {:2}, threads = {}, memory = {} {:.4} s",
+                     passes,
+                     lanes,
+                     memory,
+                     elapsed / 1_000_000_000f64);
             if elapsed < timelimit {
                 highest_passes = passes;
                 best_lanes = lanes;
@@ -128,16 +135,18 @@ fn tune_argon(target: f64) -> Primitive {
             passes += 1;
 
         }
-        
+
     }
 
     if highest_passes < rec_pass {
-        println!("Unable to reach minimum recommended parameters for requested timeframe. Falling back to defaults.");
+        println!("Unable to reach minimum recommended parameters for requested timeframe. \
+                  Falling back to defaults.");
         highest_passes = rec_pass;
     }
 
 
-    println!("Recommended: {:?}", Argon2::new(highest_passes, best_lanes, memory));
+    println!("Recommended: {:?}",
+             Argon2::new(highest_passes, best_lanes, memory));
     println!("Default:     {:?}", Argon2::default());
 
     Argon2::new(highest_passes, best_lanes, memory)
@@ -151,7 +160,7 @@ fn tune_scrypt(target: f64) -> Primitive {
     #[inline(always)]
     fn memcost(log_n: u8, r: u32, p: u32) -> u32 {
         // 128 * N * r + 128 * r * p memory
-        (128*(1<<log_n)*r + 128*r*p) / 1024
+        (128 * (1 << log_n) * r + 128 * r * p) / 1024
     }
 
     #[inline(always)]
@@ -177,7 +186,9 @@ fn tune_scrypt(target: f64) -> Primitive {
         n += 1;
     }
     n -= 1;
-    println!("Predicted maximum parameter: {:?}, with time: {:.3}s", n, timecost(n, 8, 1)/ cpu_speed);
+    println!("Predicted maximum parameter: {:?}, with time: {:.3}s",
+             n,
+             timecost(n, 8, 1) / cpu_speed);
 
     // By default attempt to use at most 12.5% of system memory
     let max_memory = (meminfo.total >> 3) as u32;
@@ -191,7 +202,7 @@ fn tune_scrypt(target: f64) -> Primitive {
     loop {
         elapsed = 0f64;
         if p > cpunum {
-            break
+            break;
         }
         while elapsed < timelimit {
             memory += 1;
@@ -207,7 +218,14 @@ fn tune_scrypt(target: f64) -> Primitive {
             }
             let end = time::precise_time_ns();
             elapsed = (end - start) as f64 / repetitions as f64;
-            println!("logN = {}, parallel = {}, read size = {} ~> memory = {} KiB {:.4} s (estimated: {:.4} s)", memory, p, r, memcost(memory, r, p), elapsed / 1_000_000_000f64, timecost(memory, r, p) / cpu_speed );
+            println!("logN = {}, parallel = {}, read size = {} ~> memory = {} KiB {:.4} s \
+                      (estimated: {:.4} s)",
+                     memory,
+                     p,
+                     r,
+                     memcost(memory, r, p),
+                     elapsed / 1_000_000_000f64,
+                     timecost(memory, r, p) / cpu_speed);
             if elapsed < timelimit {
                 highest_p = p;
                 highest_mem = memory;
@@ -217,9 +235,13 @@ fn tune_scrypt(target: f64) -> Primitive {
         p <<= 1;
     }
 
-    println!("Maximum amount of memory (capped at {:.0} KiB) to achieve < {:.2} s hash = {} KiB", max_memory, timelimit / 1_000_000_000f64, memcost(memory, r, p));
+    println!("Maximum amount of memory (capped at {:.0} KiB) to achieve < {:.2} s hash = {} KiB",
+             max_memory,
+             timelimit / 1_000_000_000f64,
+             memcost(memory, r, p));
     if highest_mem < rec_nlog {
-        println!("Unable to reach minimum recommended parameters for requested timeframe. Falling back to defaults.");
+        println!("Unable to reach minimum recommended parameters for requested timeframe. \
+                  Falling back to defaults.");
         highest_mem = rec_nlog;
         highest_p = 1;
     }
@@ -254,7 +276,8 @@ fn tune_bcrypt(target: f64) -> Primitive {
     }
 
     if cost < rec_cost {
-        println!("Unable to reach minimum recommended parameters for requested timeframe. Falling back to defaults.");
+        println!("Unable to reach minimum recommended parameters for requested timeframe. \
+                  Falling back to defaults.");
         cost = rec_cost;
     }
 
@@ -312,23 +335,23 @@ mod cost {
         let minimizer = GradientDescent::new();
         let solution = minimizer.minimize(&cost_fn, vec![1f64]);
 
-        ((t_cpu(cycles) + m_cpu(mem)),solution.value)
+        ((t_cpu(cycles) + m_cpu(mem)), solution.value)
     }
 
-    fn t_cpu(cycles: f64) -> f64 { T_CPU * cycles as f64 }
-    fn m_cpu(mem: f64) -> f64 { M_CPU * mem as f64 }
-    fn t_asic(cycles: f64) -> f64 { T_ASIC * cycles as f64}
+    fn t_cpu(cycles: f64) -> f64 {
+        T_CPU * cycles as f64
+    }
+    fn m_cpu(mem: f64) -> f64 {
+        M_CPU * mem as f64
+    }
+    fn t_asic(cycles: f64) -> f64 {
+        T_ASIC * cycles as f64
+    }
     fn m_asic(mem: f64) -> f64 {
         let m_asic = match mem {
-            x if x < (1<<19) as f64 => {
-                (mem / (1u32<<13) as f64).sqrt() / 1000.0
-            },
-            x if x < (1<<23) as f64 => {
-                0.0125
-            },
-            _ => {
-                0.2
-            }
+            x if x < (1 << 19) as f64 => (mem / (1u32 << 13) as f64).sqrt() / 1000.0,
+            x if x < (1 << 23) as f64 => 0.0125,
+            _ => 0.2,
         };
         m_asic * mem
     }
@@ -339,7 +362,7 @@ mod cost {
             (f64::MAX, f64::MAX)
         } else {
 
-            let retval = (cx * (scale + 1.0)/2.0, mx/scale);
+            let retval = (cx * (scale + 1.0) / 2.0, mx / scale);
             // println!("{:?}", retval);
             retval
         }
@@ -348,21 +371,22 @@ mod cost {
     #[test]
     fn test_cost_estimate() {
         // https://eprint.iacr.org/2016/115.pdf
-        
+
         let tolerance = 0.1;
         // 8KB costs about 1pJ per byte
-        assert!(f64::abs(m_asic((1<<13) as f64) / (1<<13) as f64 - 0.001) / 0.001 < tolerance);
+        assert!(f64::abs(m_asic((1 << 13) as f64) / (1 << 13) as f64 - 0.001) / 0.001 < tolerance);
         // 1MB costs about 12.5pJ per byte
-        assert!(f64::abs(m_asic((1<<20) as f64) / (1<<20) as f64 - 0.0125) / 0.0125 < tolerance);
+        assert!(f64::abs(m_asic((1 << 20) as f64) / (1 << 20) as f64 - 0.0125) / 0.0125 <
+                tolerance);
         // For larger amount ~1GB we get 200J/ per byte
-        assert_eq!(m_asic((1<<30) as f64), 0.2 * (1<<30) as f64);
-        
+        assert_eq!(m_asic((1 << 30) as f64), 0.2 * (1 << 30) as f64);
+
         // SHA256 numbers
         let (cpu, asic) = estimate_cost(13.4, 0.0, |cx, mx, _| (cx, mx));
         assert!(cpu > 100.0 * asic);
 
         // Scrypt numbers with params n
-        let n = (1u32<<20) as f64;
+        let n = (1u32 << 20) as f64;
         let r = 8.0;
         let p = 1.0;
         // 3.3 as the scrypt cycles/byte cost factor for computation.
@@ -371,16 +395,24 @@ mod cost {
 
         let (cpu, asic) = estimate_cost(cycles, mem, scrypt_cost_fn);
 
-        println!("Estimates: CPU={}, ASIC(opt)={}, ASIC(naive):{}", cpu, asic, t_asic(cycles) + m_asic(mem));
-        println!("Breakdown:\n\tt_cpu =  {:15.2}\n\tt_asic = {:15.2}\n\tm_cpu =  {:15.2}\n\tm_asic = {:15.2}", t_cpu(cycles), t_asic(cycles), m_cpu(mem), m_asic(mem));
-        assert!(cpu > 2.0*asic);
+        println!("Estimates: CPU={}, ASIC(opt)={}, ASIC(naive):{}",
+                 cpu,
+                 asic,
+                 t_asic(cycles) + m_asic(mem));
+        println!("Breakdown:\n\tt_cpu =  {:15.2}\n\tt_asic = {:15.2}\n\tm_cpu =  \
+                  {:15.2}\n\tm_asic = {:15.2}",
+                 t_cpu(cycles),
+                 t_asic(cycles),
+                 m_cpu(mem),
+                 m_asic(mem));
+        assert!(cpu > 2.0 * asic);
 
 
         // Argon2i numbers
         // https://iis-people.ee.ethz.ch/~sha3/
 
         // Power of Blake(2b?): 6.62pJ/bit -> ~53pJ/byte
-        // From cryptopp benchmarks, 4.6 cycles per byte 
+        // From cryptopp benchmarks, 4.6 cycles per byte
         // let n = ()
 
     }

@@ -15,10 +15,8 @@ use serde_mcf;
 use serde_mcf::{Hashes, Map, Value};
 
 #[derive(Serialize)]
-struct Base64Encoded<'a>(
-    #[serde(with="serde_mcf::base64")]
-    &'a [u8]
-);
+struct Base64Encoded<'a>(#[serde(with="serde_mcf::base64")]
+                         &'a [u8]);
 
 impl Serialize for Output {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -38,14 +36,14 @@ impl<'a> Serialize for Algorithm {
     {
         match *self {
             Algorithm::Single(ref alg) => {
-                let mut state = serializer.serialize_struct_variant("algorithm",0,"",2)?;
+                let mut state = serializer.serialize_struct_variant("algorithm", 0, "", 2)?;
                 let (algorithm, params): (Hashes, Map<String, Value>) = alg.into();
                 state.serialize_field("id", &algorithm)?;
                 state.serialize_field("params", &params)?;
                 state.end()
-            },
+            }
             Algorithm::Nested { ref outer, ref inner } => {
-                let mut state = serializer.serialize_struct_variant("algorithm",1,"!",3)?;
+                let mut state = serializer.serialize_struct_variant("algorithm", 1, "!", 3)?;
                 let (algorithm, params): (Hashes, Map<String, Value>) = outer.into();
                 state.serialize_field("outer_id", &algorithm)?;
                 state.serialize_field("outer_params", &params)?;
@@ -60,11 +58,10 @@ impl<'a> Serialize for Primitive {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
     {
-        let mut state = serializer.serialize_struct("primitive",2)?;
+        let mut state = serializer.serialize_struct("primitive", 2)?;
         let (algorithm, params): (Hashes, Map<String, Value>) = self.into();
         state.serialize_field("id", &algorithm)?;
         state.serialize_field("params", &params)?;
         state.end()
     }
 }
-

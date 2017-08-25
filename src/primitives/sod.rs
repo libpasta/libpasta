@@ -4,12 +4,12 @@
 /// This allows us to define default primitives which are used throughout
 /// without the overhead of reference counting, while still supporting the
 /// flexibility to create primitives dynamically.
-/// 
+///
 /// Thanks to the `Deref` implementation, either variants are treated like
 /// the inner type without needing to worry about which it is.
 ///
 /// Many thanks to [panicbit](https://github.com/panicbit) for helping to
-/// get the `Deref` implementation working to make all the magic happen. 
+/// get the `Deref` implementation working to make all the magic happen.
 
 use std::sync::Arc;
 use std::ops::Deref;
@@ -40,7 +40,7 @@ impl<T: ?Sized> Clone for Sod<T> {
     fn clone(&self) -> Sod<T> {
         match *self {
             Sod::Static(t) => Sod::Static(t),
-            Sod::Dynamic(ref t) => Sod::Dynamic(t.clone())
+            Sod::Dynamic(ref t) => Sod::Dynamic(t.clone()),
         }
     }
 }

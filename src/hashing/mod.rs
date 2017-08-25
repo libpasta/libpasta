@@ -27,7 +27,7 @@ pub enum Algorithm {
     /// A single instance of a password-hashing primitive.
     Single(Primitive),
     /// The password-hashing algorithm is composed of nested primitives.
-    Nested { 
+    Nested {
         /// The outermost layer of the algorithm is a single primitive
         outer: Primitive,
         /// The rest of the layers
@@ -88,9 +88,7 @@ impl Algorithm {
     /// Computes the hash output for given password and salt.
     pub fn hash_with_salt(&self, password: &[u8], salt: &[u8]) -> Vec<u8> {
         match *self {
-            Algorithm::Single(ref p) => {
-                p.compute(password, salt)
-            },
+            Algorithm::Single(ref p) => p.compute(password, salt),
             Algorithm::Nested { ref inner, ref outer } => {
                 let innerput = inner.hash_with_salt(password, salt);
                 outer.compute(&innerput, salt)
@@ -101,25 +99,30 @@ impl Algorithm {
     /// Test whether the current 'Algorithm` is sufficiently secure.
     ///
     /// TODO: Implement different ways to determine "secure".
-    /// For now, this just checks you are using Argon2 with a decent memory 
+    /// For now, this just checks you are using Argon2 with a decent memory
     /// parameter.
     pub fn needs_migrating(&self) -> bool {
         let default: &Primitive = &*config::DEFAULT_PRIM;
         match *self {
-            Algorithm::Single(ref a2) | Algorithm::Nested { outer: ref a2, ..  } => {
-                a2.ge(default)
-            }
+            Algorithm::Single(ref a2) |
+            Algorithm::Nested { outer: ref a2, .. } => a2.ge(default),
         }
     }
 
     /// Copies `self` into a new `Algorithm` wrapped by `outer`
     pub fn to_wrapped(&self, outer: Primitive) -> Algorithm {
-        Algorithm::Nested { outer, inner: Box::new(self.clone()) }
+        Algorithm::Nested {
+            outer: outer,
+            inner: Box::new(self.clone()),
+        }
     }
 
     /// Moves `self` into a new `Algorithm` wrapped by `outer`
     pub fn into_wrapped(self, outer: Primitive) -> Algorithm {
-        Algorithm::Nested { outer, inner: Box::new(self) }
+        Algorithm::Nested {
+            outer: outer,
+            inner: Box::new(self),
+        }
     }
 }
 

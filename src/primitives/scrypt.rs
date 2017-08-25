@@ -1,4 +1,4 @@
-/// Native Rust implementation of scrypt. 
+/// Native Rust implementation of scrypt.
 pub use self::native::Scrypt;
 
 /// Native Rust implementation of scrypt.
@@ -57,23 +57,22 @@ mod native {
         /// for serializing.
         fn params_as_vec(&self) -> Vec<(&'static str, String)> {
             let (log_n, r, p) = convert_params!(self.pbytes);
-            vec![
-                ("log_n", log_n.to_string()),
-                ("r", r.to_string()),
-                ("p", p.to_string()),
-            ]
+            vec![("log_n", log_n.to_string()), ("r", r.to_string()), ("p", p.to_string())]
         }
 
         fn hash_id(&self) -> Hashes {
             Hashes::ScryptMcf
         }
-
     }
 
     impl fmt::Debug for Scrypt {
         fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
             let params = convert_params!(self.pbytes);
-            write!(f, "Scrypt, N: {}, r: {}, p: {}", 1 << params.0, params.1, params.2)
+            write!(f,
+                   "Scrypt, N: {}, r: {}, p: {}",
+                   1 << params.0,
+                   params.1,
+                   params.2)
         }
     }
 
@@ -100,9 +99,10 @@ mod native {
         pub fn from_bytes(bytes: [u8; 9]) -> Primitive {
             let (log_n, r, p) = convert_params!(bytes);
             Scrypt {
-                pbytes: bytes,
-                params: scrypt::ScryptParams::new(log_n, r, p),
-            }.into()
+                    pbytes: bytes,
+                    params: scrypt::ScryptParams::new(log_n, r, p),
+                }
+                .into()
         }
     }
 

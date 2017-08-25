@@ -4,7 +4,7 @@
 //! The main algorithms here are re-exported for general use.
 //! Each algorithm has a `new` and `default` function. The former can
 //! be provided parameters and creates a new dynamic instance of that
-//! parameter set. Whereas the latter refers to a statically referenced 
+//! parameter set. Whereas the latter refers to a statically referenced
 //! parameter set.
 //!
 //! All implementations are wrapped in a `Primitive` struct,
@@ -69,7 +69,7 @@ use std::sync::Arc;
 /// Password hashing primitives
 ///
 /// Each variant is backed up by different implementation.
-/// Internally, primitives can either be static values, for example, 
+/// Internally, primitives can either be static values, for example,
 /// the `lazy_static` generated value `DEFAULT_PRIM`, or dynamically allocated
 /// variables, which are `Arc<Box<...>>`.
 ///
@@ -87,12 +87,12 @@ impl fmt::Debug for Primitive {
 }
 /// Trait defining the functionality of a hashing primitive.
 pub trait PrimitiveImpl: fmt::Debug + Send + Sync {
-    /// Compute the output of the primitive with input `password` and `salt`.    
+    /// Compute the output of the primitive with input `password` and `salt`.
     fn compute(&self, password: &[u8], salt: &[u8]) -> Vec<u8>;
 
     /// Verify the password and salt against the hash.
     ///
-    /// In many cases, this just checks whether 
+    /// In many cases, this just checks whether
     /// `compute(password, salt) == hash`.
     fn verify(&self, password: &[u8], salt: &[u8], hash: &[u8]) -> bool {
         constant_time::verify_slices_are_equal(&self.compute(password, salt), hash).is_ok()
@@ -123,37 +123,37 @@ impl PartialEq<PrimitiveImpl> for PrimitiveImpl {
 impl PartialOrd<PrimitiveImpl> for PrimitiveImpl {
     fn partial_cmp(&self, other: &PrimitiveImpl) -> Option<Ordering> {
         if self.hash_id() == other.hash_id() {
-            self.params_as_vec().iter().zip(other.params_as_vec().iter())
-                .map(|(x, y)| {
-                    if x == y {
-                        Some(Ordering::Equal)
-                    } else if let Some(x) = x.1.parse::<f64>().ok() {
-                        if let Some(y) = y.1.parse::<f64>().ok() {
-                            x.partial_cmp(&y)
-                        } else {
-                            None
-                        }
+            self.params_as_vec()
+                .iter()
+                .zip(other.params_as_vec().iter())
+                .map(|(x, y)| if x == y {
+                    Some(Ordering::Equal)
+                } else if let Some(x) = x.1.parse::<f64>().ok() {
+                    if let Some(y) = y.1.parse::<f64>().ok() {
+                        x.partial_cmp(&y)
                     } else {
                         None
                     }
-                }).fold_while(None, |acc, c| {
-                    if c.is_none() {
-                        Done(None)
+                } else {
+                    None
+                })
+                .fold_while(None, |acc, c| if c.is_none() {
+                    Done(None)
+                } else {
+                    if acc.is_none() {
+                        Continue(c)
+                    } else if c == acc || c == Some(Ordering::Equal) {
+                        Continue(acc)
                     } else {
-                        if acc.is_none() {
-                            Continue(c)
-                        } else if  c == acc || c == Some(Ordering::Equal) {
-                            Continue(acc)
-                        } else {
-                            Done(None)
-                        }
+                        Done(None)
                     }
-                }).into_inner()
+                })
+                .into_inner()
         } else {
             None
         }
     }
-} 
+}
 
 
 impl Deref for Primitive {
@@ -206,7 +206,7 @@ impl PrimitiveImpl for Poisoned {
     }
 }
 
-/// This will be `TryFrom` when it stabilises. 
+/// This will be `TryFrom` when it stabilises.
 /// For now we just return a `Poisoned`
 impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
     fn from(other: (&Hashes, &Map<String, Value>)) -> Self {
@@ -231,7 +231,7 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                     r |x| { u32::from_str_radix(x, 10) },
                 );
                 Argon2::new(passes, lanes, kib)
-            },
+            }
             Hashes::BcryptMcf => {
                 let cost = unwrap_or_default!(
                     Poisoned.into(),
@@ -240,7 +240,7 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                     r |x| { u32::from_str_radix(x, 10) },
                 );
                 Bcrypt::new(cost)
-            },
+            }
             Hashes::Hmac => {
                 let hash_id = unwrap_or_default!(
                     Poisoned.into(),
@@ -252,10 +252,12 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                     &other.1["key_id"],
                     o Value::as_str,
                 );
-                Hmac::with_key(hash_from_id(hash_id), &::key::KEY_STORE.get_key(key_id).expect("could not get key from store"))
-            },
-            ref x @ Hashes::Pbkdf2Sha1 | 
-            ref x @ Hashes::Pbkdf2Sha256 | 
+                Hmac::with_key(hash_from_id(hash_id),
+                               &::key::KEY_STORE.get_key(key_id)
+                                   .expect("could not get key from store"))
+            }
+            ref x @ Hashes::Pbkdf2Sha1 |
+            ref x @ Hashes::Pbkdf2Sha256 |
             ref x @ Hashes::Pbkdf2Sha512 => {
                 let iterations = unwrap_or_default!(
                     Poisoned.into(),
@@ -269,7 +271,7 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                     Hashes::Pbkdf2Sha512 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA512),
                     _ => panic!("impossible due to previous matching"),
                 }
-            },
+            }
             Hashes::ScryptMcf => {
                 let log_n = unwrap_or_default!(
                     Poisoned.into(),
@@ -287,10 +289,8 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                     o value_as_int::<u32>,
                 );
                 Scrypt::new(log_n, r, p)
-            },
-            _ => {
-                Poisoned.into()
             }
+            _ => Poisoned.into(),
         }
     }
 }
@@ -305,9 +305,9 @@ fn value_as_int<T>(val: &Value) -> Option<T>
             } else {
                 None
             }
-        },
+        }
         Value::String(ref s) => T::from_str_radix(s.as_str(), 10).ok(),
-        _ => None
+        _ => None,
     }
 }
 
@@ -315,7 +315,8 @@ impl<'a> From<(&'a Hashes, &'a String)> for Primitive {
     fn from(other: (&Hashes, &String)) -> Self {
         use self::Hashes::*;
         if let BcryptMcf = *other.0 {
-            let cost = u32::from_str_radix(other.1, 10).expect("parameter could not be parsed as an integer");
+            let cost = u32::from_str_radix(other.1, 10)
+                .expect("parameter could not be parsed as an integer");
             bcrypt::Bcrypt::new(cost)
         } else {
             panic!("No suitable parameter format found");
@@ -342,7 +343,6 @@ impl<'a> From<&'a Primitive> for (Hashes, Map<String, Value>) {
         }
         (other.0.hash_id(), map)
     }
-
 }
 
 fn hash_to_id(algorithm: &'static digest::Algorithm) -> String {

@@ -3,7 +3,7 @@
 //! Included here are methods to setup and configure `libpasta`.
 //! Currently, this refers to the choice of default hashing algorithm.
 //!
-//! Configuration can be specified in two ways: through configuration files, 
+//! Configuration can be specified in two ways: through configuration files,
 //! or programmatically.
 //!
 //! Configuration files are either found in the current path
@@ -11,12 +11,12 @@
 //! using the environment variable `LIBPASTA_CFG`.
 //!
 //! Alternatively, the `set_primitive` function, and others, can be used
-//! to configure the library. However, note that once the library is "in use", 
+//! to configure the library. However, note that once the library is "in use",
 //! i.e. a function like `hash_password` has been called, then attempting
 //! to configure the library will cause a panic.
 //!
 //! There are a number of ways panics can happen through using the configuration
-//! files. `libpasta` does not try to recover gracefully if 
+//! files. `libpasta` does not try to recover gracefully if
 use data_encoding;
 use serde_yaml;
 use lazy_static;
@@ -29,7 +29,7 @@ use primitives::{self, Primitive, PrimitiveImpl, Sod};
 use std::default::Default;
 use std::env;
 use std::fs::File;
-use std::path::{Path,PathBuf};
+use std::path::{Path, PathBuf};
 use std::io::BufReader;
 use std::sync::{Arc, Mutex};
 
@@ -118,7 +118,7 @@ pub fn to_string() -> String {
 impl GlobalDefaults {
     /// Create a new empty `GlobalDefaults` for setting parameters
     fn new() -> Self {
-        GlobalDefaults{
+        GlobalDefaults {
             default: AlgorithmChoice::default(),
             keyed: None,
             keys: None,
@@ -179,12 +179,12 @@ impl GlobalDefaults {
     }
 
     fn merge(&mut self, other: GlobalDefaults) {
-        if self.primitive.is_none(){
+        if self.primitive.is_none() {
             if let Some(prim) = other.primitive {
                 self.set_primitive(prim);
             }
         }
-        if self.keyed.is_none(){
+        if self.keyed.is_none() {
             if let Some(k) = other.keyed {
                 self.set_keyed_hash(k);
             }
@@ -208,20 +208,22 @@ impl GlobalDefaults {
         self.merge(Self::default());
         if let Some(ref keys) = self.keys {
             for key in keys {
-                key::KEY_STORE.insert(data_encoding::base64::encode_nopad(key.as_ref()), key.as_ref());
+                key::KEY_STORE.insert(data_encoding::base64::encode_nopad(key.as_ref()),
+                                      key.as_ref());
             }
         }
         self.finalised = true;
     }
 
-    /// Serialize the configuration as YAML 
+    /// Serialize the configuration as YAML
     fn to_string(&self) -> String {
         serde_yaml::to_string(&self).expect("failed to serialize config")
     }
 }
 
 fn finalize_global_config() {
-    let config: &mut GlobalDefaults = &mut *PASTA_CONFIG.lock().expect("could not acquire lock on config");
+    let config: &mut GlobalDefaults = &mut *PASTA_CONFIG.lock()
+        .expect("could not acquire lock on config");
     let mut path = PathBuf::from(".");
     if let Ok(new_path) = env::var("LIBPASTA_CFG") {
         path.push(new_path);
@@ -312,7 +314,8 @@ mod test {
     use super::*;
     use super::super::hash_password;
 
-    #[test] #[should_panic]
+    #[test]
+    #[should_panic]
     fn late_config() {
         let _ = hash_password("hunter2".into());
         let primitive = primitives::Scrypt::default();

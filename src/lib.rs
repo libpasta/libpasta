@@ -14,16 +14,16 @@
 
 //! # Pasta - Password Storage
 //! _Making passwords painless_
-//! 
+//!
 //! This is a library designed to make secure password storage easy.
 //!
 //! For a more comprehensive introduction, see: https://libpasta.github.io/
 //!
-//! 
+//!
 //! ## Examples
 //!
 //! The basic functionality for computing password hashes is:
-//! 
+//!
 //! ```
 //! extern crate libpasta;
 //! // We re-export the rpassword crate for CLI password input.
@@ -49,9 +49,9 @@
 #![allow(unknown_lints)]
 #![deny(clippy_pedantic)]
 #![allow(
-    missing_docs_in_private_items, 
-    new_ret_no_self, // we use fn new() -> Primitive for convenience
-    use_self, // currently broken in  clippy v0.0.153
+    missing_docs_in_private_items,
+ // we use fn new() -> Primitive for convenience
+ // currently broken in  clippy v0.0.153
 )]
 #![deny(
     const_err,
@@ -222,7 +222,7 @@ pub fn verify_password_update_hash_safe(hash: &mut String, password: String) -> 
 /// Migrate the input hash to the current recommended hash.
 ///
 /// Note that this does *not* require the password. This is for batch updating
-/// of hashes, where the password is not available. This performs an onion 
+/// of hashes, where the password is not available. This performs an onion
 /// approach, returning `new_hash(old_hash)`.
 ///
 /// If the password is also available, the `verify_password_update_hash` should
@@ -242,7 +242,10 @@ pub fn migrate_hash_safe(hash: &mut String) -> Result<()> {
         return Ok(());
     }
     // This is wrong, needs to be `def` as `outer`.
-    let new_params = Algorithm::Nested { outer: config::DEFAULT_PRIM.clone(), inner: Box::new(pwd_hash.alg) };
+    let new_params = Algorithm::Nested {
+        outer: config::DEFAULT_PRIM.clone(),
+        inner: Box::new(pwd_hash.alg),
+    };
 
     let new_salt = pwd_hash.salt;
 
@@ -285,7 +288,7 @@ mod api_tests {
         // can't use password again
         let password = "".to_owned();
         assert!(verify_password(&hash, password));
-        assert!(!verify_password(&hash,"wrong password".to_owned()));
+        assert!(!verify_password(&hash, "wrong password".to_owned()));
 
         let password = "hunter2".to_owned();
         let hash = hash_password(password);
@@ -293,7 +296,7 @@ mod api_tests {
         // can't use password again
         let password = "hunter2".to_owned();
         assert!(verify_password(&hash, password));
-        assert!(!verify_password(&hash,"wrong password".to_owned()));
+        assert!(!verify_password(&hash, "wrong password".to_owned()));
     }
 
     #[test]
@@ -303,7 +306,7 @@ mod api_tests {
         let pwd_hash: Output = serde_mcf::from_str(hash).unwrap();
         println!("{:?}", pwd_hash);
 
-        let expected_hash = pwd_hash.alg.hash_with_salt(password.as_bytes(), &pwd_hash.salt, );
+        let expected_hash = pwd_hash.alg.hash_with_salt(password.as_bytes(), &pwd_hash.salt);
         assert_eq!(pwd_hash.hash, &expected_hash[..]);
         assert!(verify_password(&hash, password));
     }
@@ -319,7 +322,10 @@ mod api_tests {
     fn nested_hash() {
         let password = "hunter2".to_owned();
 
-        let params = Algorithm::Nested { inner: Box::new(Algorithm::default()), outer: DEFAULT_PRIM.clone() };
+        let params = Algorithm::Nested {
+            inner: Box::new(Algorithm::default()),
+            outer: DEFAULT_PRIM.clone(),
+        };
         let hash = params.hash(password.into()).unwrap();
 
         let password = "hunter2".to_owned();
@@ -338,7 +344,10 @@ mod api_tests {
     fn verify_update() {
         let password = "hunter2".to_owned();
 
-        let params = Algorithm::Nested { inner: Box::new(Algorithm::default()), outer: DEFAULT_PRIM.clone() };
+        let params = Algorithm::Nested {
+            inner: Box::new(Algorithm::default()),
+            outer: DEFAULT_PRIM.clone(),
+        };
         let hash = params.hash(password.into()).unwrap();
 
         let password = "hunter2".to_owned();
@@ -395,11 +404,13 @@ mod api_tests {
         assert!(!verify_password(&hash, password.clone()));
 
         // Truncated hash
-        let hash = "$$scrypt-mcf$log_n=14,r=8,p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt";
+        let hash = "$$scrypt-mcf$log_n=14,r=8,\
+                    p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt";
         assert!(!verify_password(&hash, password.clone()));
 
         // Extended hash
-        let hash = "$$scrypt-mcf$log_n=14,r=8,p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5cAAAA";
+        let hash = "$$scrypt-mcf$log_n=14,r=8,\
+                    p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5cAAAA";
         assert!(!verify_password(&hash, password.clone()));
     }
 

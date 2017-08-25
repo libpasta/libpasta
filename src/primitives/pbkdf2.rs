@@ -1,9 +1,9 @@
-/// Native Rust implementation of scrypt. 
+/// Native Rust implementation of scrypt.
 pub use self::fastpbkdf2::Pbkdf2;
 pub use self::ring_pbkdf2::Pbkdf2 as RingPbkdf2;
 
 /// Native Rust implementation of scrypt.
-mod ring_pbkdf2 {    
+mod ring_pbkdf2 {
     use primitives::{Primitive, PrimitiveImpl};
     use primitives::sod::Sod;
 
@@ -36,7 +36,10 @@ mod ring_pbkdf2 {
         }
 
         fn new_impl(iterations: u32, algorithm: &'static digest::Algorithm) -> Self {
-            Self { iterations, algorithm }
+            Self {
+                iterations: iterations,
+                algorithm: algorithm,
+            }
         }
     }
 
@@ -57,9 +60,7 @@ mod ring_pbkdf2 {
         /// Convert parameters into a vector of (key, value) tuples
         /// for serializing.
         fn params_as_vec(&self) -> Vec<(&'static str, String)> {
-            vec![
-                ("n", self.iterations.to_string()),
-            ]
+            vec![("n", self.iterations.to_string())]
         }
 
         fn hash_id(&self) -> Hashes {
@@ -70,18 +71,21 @@ mod ring_pbkdf2 {
                 _ => panic!("unexpected digest algorithm"),
             }
         }
-
     }
 
     impl fmt::Debug for Pbkdf2 {
         fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-            write!(f, "PBKDF2-{:?}, iterations: {}", self.algorithm, self.iterations)
+            write!(f,
+                   "PBKDF2-{:?}, iterations: {}",
+                   self.algorithm,
+                   self.iterations)
         }
     }
 
     impl PartialEq for Pbkdf2 {
         fn eq(&self, rhs: &Self) -> bool {
-            (self.iterations == rhs.iterations) && (hash_to_id(self.algorithm) == hash_to_id(rhs.algorithm))
+            (self.iterations == rhs.iterations) &&
+            (hash_to_id(self.algorithm) == hash_to_id(rhs.algorithm))
         }
     }
 }
@@ -131,9 +135,27 @@ mod fastpbkdf2 {
 
         fn new_impl(iterations: u32, algorithm: &'static digest::Algorithm) -> Self {
             match hash_to_id(algorithm).as_ref() {
-                "SHA1" => Self { iterations: iterations, algorithm: pbkdf2_hmac_sha1, alg_id: "SHA1" },
-                "SHA256" => Self { iterations: iterations, algorithm: pbkdf2_hmac_sha256, alg_id: "SHA256" },
-                "SHA512" => Self { iterations: iterations, algorithm: pbkdf2_hmac_sha512, alg_id: "SHA512" },
+                "SHA1" => {
+                    Self {
+                        iterations: iterations,
+                        algorithm: pbkdf2_hmac_sha1,
+                        alg_id: "SHA1",
+                    }
+                }
+                "SHA256" => {
+                    Self {
+                        iterations: iterations,
+                        algorithm: pbkdf2_hmac_sha256,
+                        alg_id: "SHA256",
+                    }
+                }
+                "SHA512" => {
+                    Self {
+                        iterations: iterations,
+                        algorithm: pbkdf2_hmac_sha512,
+                        alg_id: "SHA512",
+                    }
+                }
                 _ => panic!("unexpected digest algorithm"),
             }
         }
@@ -150,9 +172,7 @@ mod fastpbkdf2 {
         /// Convert parameters into a vector of (key, value) tuples
         /// for serializing.
         fn params_as_vec(&self) -> Vec<(&'static str, String)> {
-            vec![
-                ("n", self.iterations.to_string()),
-            ]
+            vec![("n", self.iterations.to_string())]
         }
 
         fn hash_id(&self) -> Hashes {
@@ -163,12 +183,14 @@ mod fastpbkdf2 {
                 _ => panic!("unexpected digest algorithm"),
             }
         }
-
     }
 
     impl fmt::Debug for Pbkdf2 {
         fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-            write!(f, "PBKDF2-{:?}, iterations: {}", self.alg_id, self.iterations)
+            write!(f,
+                   "PBKDF2-{:?}, iterations: {}",
+                   self.alg_id,
+                   self.iterations)
         }
     }
 
@@ -207,4 +229,3 @@ mod ring_bench {
 mod fast_bench {
     benches!(Pbkdf2);
 }
-
