@@ -53,6 +53,8 @@ pub use self::sod::Sod;
 
 use key::Store;
 
+use itertools::Itertools;
+use itertools::FoldWhile::{Continue, Done};
 use num_traits;
 use num_traits::FromPrimitive;
 use ring::{constant_time, digest};
@@ -115,10 +117,38 @@ impl PartialEq<PrimitiveImpl> for PrimitiveImpl {
     }
 }
 
+/// Compare two primitive parameterisations by first checking for equality of
+/// the hash identifiers, and then attempting to compare the parameters
+/// numerically.
 impl PartialOrd<PrimitiveImpl> for PrimitiveImpl {
     fn partial_cmp(&self, other: &PrimitiveImpl) -> Option<Ordering> {
         if self.hash_id() == other.hash_id() {
-            Some(self.params_as_vec().cmp(&other.params_as_vec()))
+            self.params_as_vec().iter().zip(other.params_as_vec().iter())
+                .map(|(x, y)| {
+                    if x == y {
+                        Some(Ordering::Equal)
+                    } else if let Some(x) = x.1.parse::<f64>().ok() {
+                        if let Some(y) = y.1.parse::<f64>().ok() {
+                            x.partial_cmp(&y)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }).fold_while(None, |acc, c| {
+                    if c.is_none() {
+                        Done(None)
+                    } else {
+                        if acc.is_none() {
+                            Continue(c)
+                        } else if  c == acc || c == Some(Ordering::Equal) {
+                            Continue(acc)
+                        } else {
+                            Done(None)
+                        }
+                    }
+                }).into_inner()
         } else {
             None
         }
@@ -259,7 +289,7 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                 Scrypt::new(log_n, r, p)
             },
             _ => {
-                panic!("");
+                Poisoned.into()
             }
         }
     }
@@ -331,4 +361,24 @@ fn hash_from_id(id: &str) -> &'static digest::Algorithm {
         "SHA512_256" => &digest::SHA512_256,
         _ => panic!("Unknown digest algorithm"),
     }
+}
+
+#[test]
+fn test_comparisons() {
+    let bcrypt = Bcrypt::new(10);
+    let bcrypt_better = Bcrypt::new(20);
+
+    let scrypt = Scrypt::new(10, 8, 1);
+    let scrypt_better = Scrypt::new(14, 8, 1);
+    let scrypt_diff = Scrypt::new(15, 4, 1);
+
+    assert_eq!(bcrypt, bcrypt);
+    assert_eq!(scrypt, scrypt);
+
+    assert_eq!(bcrypt.partial_cmp(&bcrypt_better), Some(Ordering::Less));
+    assert!(scrypt < scrypt_better);
+
+    assert_eq!(scrypt.partial_cmp(&scrypt_diff), None);
+    assert_eq!(scrypt_better.partial_cmp(&scrypt_diff), None);
+    assert_eq!(scrypt.partial_cmp(&bcrypt), None);
 }

@@ -4,13 +4,14 @@ pub use self::ring_pbkdf2::Pbkdf2 as RingPbkdf2;
 
 /// Native Rust implementation of scrypt.
 mod ring_pbkdf2 {    
-    use primitives::Primitive;
+    use primitives::{Primitive, PrimitiveImpl};
     use primitives::sod::Sod;
 
     use ring::{digest, pbkdf2};
     use serde_mcf::Hashes;
 
     use std::fmt;
+    use std::sync::Arc;
 
     use super::super::hash_to_id;
 
@@ -26,7 +27,7 @@ mod ring_pbkdf2 {
     impl Pbkdf2 {
         /// Create a new PBKDF2 instance using defaults.
         pub fn default() -> Primitive {
-            Primitive(Sod::Static(&*DEFAULT))
+            Primitive(Sod::Dynamic((*DEFAULT).clone()))
         }
 
         /// Create  a new PBKDF2 instance.
@@ -40,8 +41,8 @@ mod ring_pbkdf2 {
     }
 
     lazy_static! {
-        static ref DEFAULT: Pbkdf2 = {
-            Pbkdf2::new_impl(10_000, &digest::SHA256)
+        static ref DEFAULT: Arc<Box<PrimitiveImpl>> = {
+            Arc::new(Box::new(Pbkdf2::new_impl(10_000, &digest::SHA256)))
         };
     }
 
@@ -91,13 +92,14 @@ mod fastpbkdf2 {
     extern crate fastpbkdf2;
     use self::fastpbkdf2::*;
 
-    use primitives::Primitive;
+    use primitives::{Primitive, PrimitiveImpl};
     use primitives::sod::Sod;
 
     use ring::digest;
     use serde_mcf::Hashes;
 
     use std::fmt;
+    use std::sync::Arc;
 
     use super::super::hash_to_id;
 
@@ -111,15 +113,15 @@ mod fastpbkdf2 {
     }
 
     lazy_static! {
-        static ref DEFAULT: Pbkdf2 = {
-            Pbkdf2::new_impl(10_000, &digest::SHA256)
+        static ref DEFAULT: Arc<Box<PrimitiveImpl>> = {
+            Arc::new(Box::new(Pbkdf2::new_impl(10_000, &digest::SHA256)))
         };
     }
 
     impl Pbkdf2 {
         /// Create a new PBKDF2 instance using defaults.
         pub fn default() -> Primitive {
-            Primitive(Sod::Static(&*DEFAULT))
+            Primitive(Sod::Dynamic((*DEFAULT).clone()))
         }
 
         /// Create  a new PBKDF2 instance.
@@ -136,7 +138,6 @@ mod fastpbkdf2 {
             }
         }
     }
-
 
     impl ::primitives::PrimitiveImpl for Pbkdf2 {
         /// Compute the scrypt hash

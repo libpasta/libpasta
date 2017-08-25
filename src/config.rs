@@ -35,7 +35,7 @@ use std::sync::{Arc, Mutex};
 
 /// Holds possible configuration options
 #[derive(Debug, Deserialize, Serialize)]
-pub struct GlobalDefaults {
+struct GlobalDefaults {
     #[serde(default)]
     default: AlgorithmChoice,
     keyed: Option<Primitive>,
@@ -70,6 +70,13 @@ impl Default for GlobalDefaults {
     }
 }
 
+/// Adds the configuration specified in the supplied file to the global
+/// configuration
+pub fn from_file<P: AsRef<Path>>(path: P) {
+    let mut config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
+    config.merge_file(path, true);
+}
+
 /// Set the default hashing primitive to be used
 ///
 /// This will only work if no API calls have been previously made
@@ -96,21 +103,21 @@ pub fn set_keyed_hash(primitive: Primitive) {
     config.set_keyed_hash(primitive);
 }
 
-/// Set all configuration values from provided struct.
-pub fn set_global(config: GlobalDefaults) {
-    let mut global_config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
-    global_config.merge_override(config);
-}
-
 /// Add a new key into the list of configured keys
 pub fn add_key(key: &[u8]) {
     let mut global_config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
     global_config.add_key(key);
 }
 
+/// Print the global configuration as a YAML-formatted string.
+pub fn to_string() -> String {
+    let global_config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
+    global_config.to_string()
+}
+
 impl GlobalDefaults {
     /// Create a new empty `GlobalDefaults` for setting parameters
-    pub fn new() -> Self {
+    fn new() -> Self {
         GlobalDefaults{
             default: AlgorithmChoice::default(),
             keyed: None,
@@ -121,7 +128,7 @@ impl GlobalDefaults {
     }
 
     /// Add a new key into the list of configured keys
-    pub fn add_key(&mut self, key: &[u8]) {
+    fn add_key(&mut self, key: &[u8]) {
         if self.keys.is_none() {
             self.keys = Some(Vec::new());
         }
@@ -132,7 +139,7 @@ impl GlobalDefaults {
     }
 
     /// Set the default primitive
-    pub fn set_primitive(&mut self, primitive: Primitive) {
+    fn set_primitive(&mut self, primitive: Primitive) {
         if self.finalised {
             panic!("Attempted to redefine configuration paramater after using config.");
         }
@@ -147,18 +154,27 @@ impl GlobalDefaults {
     }
 
     /// Set a keyed function to be applied after hashing.
-    pub fn set_keyed_hash(&mut self, keyed: Primitive) {
+    fn set_keyed_hash(&mut self, keyed: Primitive) {
         if self.finalised {
             panic!("Attempted to redefine configuration paramater after using config.");
         }
         self.keyed = Some(keyed);
     }
 
-    fn merge_file<P: AsRef<Path>>(&mut self, path: P) {
-        if let Ok(file) = File::open(path) {
+    fn merge_file<P: AsRef<Path>>(&mut self, path: P, ow: bool) {
+        let file = File::open(path.as_ref());
+        if let Ok(file) = file {
             let reader = BufReader::new(file);
             let config = serde_yaml::from_reader(reader).expect("invalid config file");
-            self.merge(config);
+            trace!("imported config as: {:?}", config);
+            if ow {
+                self.merge_override(config);
+            } else {
+                self.merge(config);
+            }
+        } else {
+            info!("could not open config file {:?}: {:?}", path.as_ref(), file)
+
         }
     }
 
@@ -199,7 +215,7 @@ impl GlobalDefaults {
     }
 
     /// Serialize the configuration as YAML 
-    pub fn to_string(&self) -> String {
+    fn to_string(&self) -> String {
         serde_yaml::to_string(&self).expect("failed to serialize config")
     }
 }
@@ -211,7 +227,7 @@ fn finalize_global_config() {
         path.push(new_path);
     }
     path.push(".libpasta.yaml");
-    config.merge_file(path);
+    config.merge_file(path, false);
     trace!("Final config output:\n{}", config.to_string());
     config.finalize();
 }

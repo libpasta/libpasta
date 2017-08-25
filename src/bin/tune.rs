@@ -9,6 +9,7 @@ extern crate time;
 
 use clap::Arg;
 
+use libpasta::config;
 use libpasta::primitives::{Argon2, Bcrypt, Scrypt};
 use libpasta::primitives::Primitive;
 
@@ -50,11 +51,10 @@ fn main() {
         _ => { panic!("Unsupported variant"); }
     };
 
-    let mut config = libpasta::config::GlobalDefaults::new();
-    config.set_primitive(prim);
+    config::set_primitive(prim);
     if m.is_present("printconfig") {
         print!("\nAlgorithm in configuration format:\n");
-        println!("{}", config.to_string());
+        println!("{}", config::to_string());
     }
 }
 

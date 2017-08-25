@@ -10,6 +10,7 @@ clap = "2.23"
 data-encoding = "1.2"
 error-chain = "0.11.0-rc.2"
 fastpbkdf2 = "*"
+itertools = "0.6"
 lazy_static = "*"
 log = "0.3"
 optimization = "0.1"
@@ -32,6 +33,8 @@ version = "0.11"
 default-features = false
 features = ["use_heap"]
 
+[dev-dependencies]
+env_logger = "0.4"
 
 [features]
 bench = []

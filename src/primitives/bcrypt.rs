@@ -12,6 +12,7 @@ mod native {
     use serde_mcf::Hashes;
 
     use std::fmt;
+    use std::sync::Arc;
 
     /// `bcrypt` parameter set.
     ///
@@ -23,8 +24,8 @@ mod native {
     }
 
     lazy_static! {
-        static ref DEFAULT: Bcrypt = {
-            Bcrypt::new_impl(12)
+        static ref DEFAULT: Arc<Box<PrimitiveImpl>> = {
+            Arc::new(Box::new(Bcrypt::new_impl(12)))
         };
     }
 
@@ -77,7 +78,7 @@ mod native {
 
         /// Get the default `Bcrypt` parameter set.
         pub fn default() -> Primitive {
-            Primitive(Sod::Static(&*DEFAULT))
+            Primitive(Sod::Dynamic((*DEFAULT).clone()))
         }
     }
 
