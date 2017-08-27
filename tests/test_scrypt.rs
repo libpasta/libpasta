@@ -5,4 +5,4 @@ mod common;
 
 use libpasta::primitives::Scrypt;
 
-config_test!(Scrypt);
+config_test!(Scrypt, "$$scrypt");

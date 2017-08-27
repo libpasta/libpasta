@@ -83,12 +83,6 @@ mod hmac_ring {
                    super::super::hash_to_id(self.key.digest_algorithm()))
         }
     }
-
-    impl PartialEq for Hmac {
-        fn eq(&self, rhs: &Self) -> bool {
-            self.key_id() == rhs.key_id()
-        }
-    }
 }
 
 
@@ -101,6 +95,7 @@ mod test {
     fn sanity_check() {
         let password = "hunter2";
         let hmac_params = super::Hmac::default();
+        println!("{:?}", hmac_params);
         let inner_params = ::primitives::scrypt::Scrypt::default();
         let salt = ::get_salt();
         let hash = hmac_params.compute(&inner_params.compute(password.as_bytes(), &salt), &salt);

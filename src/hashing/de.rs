@@ -17,7 +17,7 @@ use serde::{Deserialize, Deserializer};
 use serde::de::{self, Visitor};
 use serde::de::Error;
 use serde_mcf;
-use serde_mcf::{base64, base64bcrypt};
+use serde_mcf::{base64, base64bcrypt, Hashes};
 
 use std::fmt;
 
@@ -29,15 +29,16 @@ use std::fmt;
 /// `Mcf`: `$<alg-id>$<params map>$<salt>$<hash>`
 /// `Scrypt`: `$(scrypt|rscrypt)$<params>$<salt>$<hash>`
 /// `Pasta`: `$<MCF-hash>` or `$!<Pasta-hash>` (recursively)
+#[derive(Debug, PartialEq)]
 enum SupportedVariants {
-    Bcrypt(serde_mcf::Hashes),
-    Mcf(serde_mcf::Hashes),
-    Scrypt,
+    Bcrypt(Hashes),
+    Mcf(Hashes),
     Pasta(PastaVariants),
 }
 
 /// A Pasta hash is either a sing hash parameterisation, or a recursive
 /// structure, containing many hash parameters.
+#[derive(Debug, PartialEq)]
 enum PastaVariants {
     Single,
     Nested,
@@ -65,24 +66,12 @@ struct McfFields {
     pub hash: Vec<u8>,
 }
 
-#[derive(Deserialize)]
-struct ScryptFields {
-    #[serde(with = "base64")]
-    params: Vec<u8>,
-    #[serde(with = "base64")]
-    pub salt: Vec<u8>,
-    #[serde(with = "base64")]
-    pub hash: Vec<u8>,
-}
-
-
-
 /// The nested Pasta format is specified by a $<id>$<params> parameterising the
 /// outer layer hash algorithm, followed by another set of algorithm parameters.
 /// This inner hash may also a further layer of nested params.
 #[derive(Deserialize)]
 struct PastaNest {
-    outer_id: serde_mcf::Hashes,
+    outer_id: Hashes,
     outer_params: serde_mcf::Map<String, serde_mcf::Value>,
     inner: Output,
 }
@@ -125,6 +114,10 @@ impl<'de> Visitor<'de> for OutputVisitor {
                 let _: Option<String> = map.next_key()?;
                 let fields: BcryptFields = map.next_value()?;
                 let prim = ::primitives::Bcrypt::new(fields.cost);
+                if prim == ::primitives::Poisoned.into() {
+                    #[allow(use_debug)]
+                    return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
+                }
                 Ok(Output {
                     alg: Algorithm::Single(prim),
                     salt: fields.salthash.0,
@@ -145,21 +138,7 @@ impl<'de> Visitor<'de> for OutputVisitor {
                     hash: fields.hash,
                 })
             }
-            SupportedVariants::Scrypt => {
-                let _: Option<String> = map.next_key()?;
-                let fields: ScryptFields = map.next_value()?;
-                let mut scrypt_bytes = [0_u8; 9];
-                scrypt_bytes.copy_from_slice(&fields.params);
-                let prim = ::primitives::Primitive::from((&serde_mcf::Hashes::Scrypt,
-                                                          scrypt_bytes));
-                Ok(Output {
-                    alg: Algorithm::Single(prim),
-                    salt: fields.salt,
-                    hash: fields.hash,
-                })
-            }
             SupportedVariants::Pasta(var) => {
-                // unimplemented!();
                 match var {
                     PastaVariants::Single => {
                         let _: Option<String> = map.next_key()?;
@@ -222,17 +201,21 @@ impl<'de> Visitor<'de> for VariantVisitor {
         let var = match val {
             "" => SupportedVariants::Pasta(PastaVariants::Single),
             "!" => SupportedVariants::Pasta(PastaVariants::Nested),
-            var @ "2" | var @ "2a" | var @ "2b" | var @ "2x" | var @ "2y" => {
-                let variant = serde_mcf::Hashes::from_id(var).ok_or_else(|| {
-                        error!("could not find MCF variant for supposed bcrypt hash");
+            var => {
+                let variant = Hashes::from_id(var).ok_or_else(|| {
                         E::custom(format!("unknown MCF variant: {}", var))
                     })?;
-                SupportedVariants::Bcrypt(variant)
-            }
-            _var @ "scrypt" | _var @ "rscrypt" => SupportedVariants::Scrypt,
-            var => {
-                let variant = serde_mcf::Hashes::from_id(var).ok_or_else(|| E::custom(format!("unknown MCF variant: {}", var)))?;
-                SupportedVariants::Mcf(variant)
+
+                match variant {
+                    Hashes::Bcrypt |
+                    Hashes::Bcrypta |
+                    Hashes::Bcryptx |
+                    Hashes::Bcrypty |
+                    Hashes::Bcryptb => {
+                        SupportedVariants::Bcrypt(variant)
+                    },
+                    _ => SupportedVariants::Mcf(variant),
+                }
             }
         };
         Ok(var)
@@ -246,10 +229,44 @@ impl<'de> Deserialize<'de> for Primitive {
     {
         #[derive(Deserialize)]
         struct PrimitiveStruct {
-            id: serde_mcf::Hashes,
+            id: Hashes,
             params: serde_mcf::Map<String, serde_mcf::Value>,
         }
         let prim = PrimitiveStruct::deserialize(deserializer)?;
         Ok((&prim.id, &prim.params).into())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use serde_mcf;
+    use serde_yaml;
+    use super::*;
+
+    #[test]
+    fn variant_tests() {
+        let variant = "$argon2i";
+        assert_eq!(serde_mcf::from_str::<SupportedVariants>(variant).unwrap(),
+        SupportedVariants::Mcf(Hashes::Argon2i));
+
+        let not_a_variant = "12";
+        assert!(serde_yaml::from_str::<SupportedVariants>(not_a_variant).is_err());
+    }
+
+    #[test]
+    fn hash_tests() {
+        let hash = "$$non-existant$$$";
+        assert!(serde_mcf::from_str::<Output>(hash).is_err());
+
+        let hash = "$argon2i$fake_map=12$salt$hash";
+        assert!(serde_mcf::from_str::<Output>(hash).is_err());
+    }
+
+    #[test]
+    fn de_bcrypt() {
+        let hash = "$2a$10$175ikf/E6E.73e83.fJRbODnYWBwmfS0ENdzUBZbedUNGO.99wJfa";
+        assert!(serde_mcf::from_str::<Output>(hash).is_ok());
+        let broken_hash = "$2a$purple$175ikf/E6E.73e83.fJRbODnYWBwmfS0ENdzUBZbedUNGO.99wJfa";
+        assert!(serde_mcf::from_str::<Output>(broken_hash).is_err());
     }
 }

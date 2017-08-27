@@ -9,7 +9,6 @@ mod native {
     use serde_mcf::Hashes;
 
     use std::fmt;
-    use std::cmp::{PartialOrd, Ordering};
 
     /// Parameter set for Argon2.
     ///
@@ -67,21 +66,6 @@ mod native {
             write!(f, "Argon2i: {:?}", self.algorithm.params())
         }
     }
-
-    impl PartialEq for Argon2 {
-        fn eq(&self, other: &Self) -> bool {
-            self.algorithm.params() == other.algorithm.params()
-        }
-    }
-
-    impl PartialOrd for Argon2 {
-        fn partial_cmp(&self, other: &Argon2) -> Option<Ordering> {
-            let (_, kib, passes, lanes) = self.algorithm.params();
-            let (_, kib2, passes2, lanes2) = other.algorithm.params();
-
-            Some((kib, passes, lanes).cmp(&(kib2, passes2, lanes2)))
-        }
-    }
 }
 
 
@@ -91,9 +75,26 @@ benches!(Argon2);
 mod test {
     extern crate data_encoding;
     use self::data_encoding::base16;
-    use serde_mcf as mcf;
+    use serde_mcf;
     use super::*;
     use hashing::*;
+
+    #[test]
+    fn sanity_check() {
+        let password = "hunter2";
+        let params = super::Argon2::default();
+        println!("{:?}", params);
+        let salt = ::get_salt();
+        let hash = params.compute(password.as_bytes(), &salt);
+        let hash2 = params.compute(password.as_bytes(), &salt);
+        assert_eq!(hash, hash2);
+        let out = Output {
+            alg: Algorithm::Single(params.into()),
+            salt: salt,
+            hash: hash,
+        };
+        println!("{:?}", serde_mcf::to_string(&out).unwrap());
+    }
 
     fn hashtest(passes: u32,
                 m: u32,
@@ -105,13 +106,13 @@ mod test {
         let alg = Argon2::new(passes, lanes, 1 << m);
         let hash = alg.compute(password.as_bytes(), salt.as_bytes());
         assert_eq!(base16::encode(&hash).to_lowercase(), hexpected);
-        assert_eq!(mcf::from_str::<Output>(encoded).unwrap().hash, hash);
+        assert_eq!(serde_mcf::from_str::<Output>(encoded).unwrap().hash, hash);
         let output = Output {
             alg: Algorithm::Single(alg.into()),
             hash: hash,
             salt: salt.as_bytes().to_vec(),
         };
-        assert_eq!(&mcf::to_string(&output).unwrap()[1..], encoded);
+        assert_eq!(&serde_mcf::to_string(&output).unwrap()[1..], encoded);
     }
 
     #[test]
@@ -164,6 +165,10 @@ mod test {
                  "79a103b90fe8aef8570cb31fc8b22259778916f8336b7bdac3892569d4f1c497",
                  "$argon2i$m=65536,t=2,p=1$ZGlmZnNhbHQ\
                  $eaEDuQ/orvhXDLMfyLIiWXeJFvgza3vaw4kladTxxJc");
+    }
+
+    #[test] #[cfg(feature = "long_tests")]
+    fn argon2i_ref_tests() {
         hashtest(2,
                  18,
                  1,

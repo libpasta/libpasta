@@ -81,13 +81,6 @@ mod ring_pbkdf2 {
                    self.iterations)
         }
     }
-
-    impl PartialEq for Pbkdf2 {
-        fn eq(&self, rhs: &Self) -> bool {
-            (self.iterations == rhs.iterations) &&
-            (hash_to_id(self.algorithm) == hash_to_id(rhs.algorithm))
-        }
-    }
 }
 
 
@@ -193,23 +186,20 @@ mod fastpbkdf2 {
                    self.iterations)
         }
     }
-
-    impl PartialEq for Pbkdf2 {
-        fn eq(&self, rhs: &Self) -> bool {
-            (self.iterations == rhs.iterations) && (self.alg_id == rhs.alg_id)
-        }
-    }
 }
 
 
 #[cfg(test)]
 mod test {
     use ::hashing::*;
+    use ring::digest;
     use serde_mcf;
+
     #[test]
     fn sanity_check() {
         let password = "hunter2";
         let params = super::Pbkdf2::default();
+        println!("{:?}", params);
         let salt = ::get_salt();
         let hash = params.compute(password.as_bytes(), &salt);
         let hash2 = params.compute(password.as_bytes(), &salt);
@@ -220,6 +210,52 @@ mod test {
             hash: hash,
         };
         println!("{:?}", serde_mcf::to_string(&out).unwrap());
+    }
+
+    #[test]
+    fn sanity_check_ring() {
+        let password = "hunter2";
+        let params = super::RingPbkdf2::default();
+        println!("{:?}", params);
+        let salt = ::get_salt();
+        let hash = params.compute(password.as_bytes(), &salt);
+        let hash2 = params.compute(password.as_bytes(), &salt);
+        assert_eq!(hash, hash2);
+        let out = Output {
+            alg: Algorithm::Single(params.into()),
+            salt: salt,
+            hash: hash,
+        };
+        println!("{:?}", serde_mcf::to_string(&out).unwrap());
+    }
+
+    macro_rules! primitive_round_trip {
+        ($prim:expr) => (
+            let hash = serde_mcf::to_string(&$prim.hash("hunter2".to_string().into()).unwrap()).unwrap();
+            let _output: Output = serde_mcf::from_str(&hash).unwrap();
+        )
+    }
+
+    #[test]
+    fn pbkdf2_params() {
+        let params = Algorithm::Single(super::Pbkdf2::new(1_000, &digest::SHA1));
+        primitive_round_trip!(params);
+
+        let params = Algorithm::Single(super::Pbkdf2::new(1_000, &digest::SHA256));
+        primitive_round_trip!(params);
+
+        let params = Algorithm::Single(super::Pbkdf2::new(1_000, &digest::SHA512));
+        primitive_round_trip!(params);
+
+        let params = Algorithm::Single(super::RingPbkdf2::new(1_000, &digest::SHA1));
+        primitive_round_trip!(params);
+
+        let params = Algorithm::Single(super::RingPbkdf2::new(1_000, &digest::SHA256));
+        primitive_round_trip!(params);
+
+        let params = Algorithm::Single(super::RingPbkdf2::new(1_000, &digest::SHA512));
+        primitive_round_trip!(params);
+
     }
 }
 

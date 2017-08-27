@@ -234,22 +234,17 @@ pub fn migrate_hash(hash: &mut String) {
 /// Same as `migrate_hash` but returns `Result` to allow error handling.
 #[doc(hidden)]
 pub fn migrate_hash_safe(hash: &mut String) -> Result<()> {
-    use hashing::Algorithm;
     let pwd_hash: Output = serde_mcf::from_str(hash)?;
 
-    if pwd_hash.alg == *config::DEFAULT_ALG {
+    if !pwd_hash.alg.needs_migrating() {
         // no need to migrate
         return Ok(());
     }
-    // This is wrong, needs to be `def` as `outer`.
-    let new_params = Algorithm::Nested {
-        outer: config::DEFAULT_PRIM.clone(),
-        inner: Box::new(pwd_hash.alg),
-    };
 
+    let new_params = pwd_hash.alg.to_wrapped(config::DEFAULT_PRIM.clone());
     let new_salt = pwd_hash.salt;
 
-    let new_hash = config::DEFAULT_ALG.hash_with_salt(&pwd_hash.hash, &new_salt);
+    let new_hash = (*config::DEFAULT_PRIM).compute(&pwd_hash.hash, &new_salt);
     let new_hash = Output {
         alg: new_params,
         hash: new_hash,
@@ -384,32 +379,32 @@ mod api_tests {
 
     #[test]
     fn handles_broken_hashes() {
-        // base hash: $$scrypt-mcf$log_n=14,r=8,p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c
+        // base hash: $$scrypt$ln=14,r=8,p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c
         let password = "hunter2".to_owned();
 
         // Missing param
-        let hash = "$$scrypt-mcf$log_n=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
+        let hash = "$$scrypt$ln=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
         assert!(!verify_password(&hash, password.clone()));
 
         // Incorrect hash-id
-        let hash = "$$nocrypt-mcf$log_n=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
+        let hash = "$$nocrypt$ln=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
         assert!(!verify_password(&hash, password.clone()));
 
         // Missing salt
-        let hash = "$$scrypt-mcf$log_n=14p=1$$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
+        let hash = "$$scrypt$ln=14p=1$$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
         assert!(!verify_password(&hash, password.clone()));
 
         // Incorrect number of fields
-        let hash = "$$scrypt-mcf$log_n=14p=1$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
+        let hash = "$$scrypt$ln=14p=1$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
         assert!(!verify_password(&hash, password.clone()));
 
         // Truncated hash
-        let hash = "$$scrypt-mcf$log_n=14,r=8,\
+        let hash = "$$scrypt$ln=14,r=8,\
                     p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt";
         assert!(!verify_password(&hash, password.clone()));
 
         // Extended hash
-        let hash = "$$scrypt-mcf$log_n=14,r=8,\
+        let hash = "$$scrypt$ln=14,r=8,\
                     p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5cAAAA";
         assert!(!verify_password(&hash, password.clone()));
     }

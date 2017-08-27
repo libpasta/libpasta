@@ -5,7 +5,7 @@ extern crate env_logger;
 use std::path::PathBuf;
 
 macro_rules! config_test {
-    ($name:ident) => (
+    ($name:ident, $prefix:expr) => (
         #[macro_use]
         extern crate log;
 
@@ -17,6 +17,7 @@ macro_rules! config_test {
             libpasta::config::set_primitive($name::default());
             trace!("config setup as: {}", libpasta::config::to_string());
             let password_hash = libpasta::hash_password(password.to_string());
+            assert!(password_hash.starts_with($prefix));
             assert!(libpasta::verify_password(&password_hash, password.to_string()));
         }
     

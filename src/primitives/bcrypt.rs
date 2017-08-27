@@ -77,12 +77,6 @@ mod native {
             Primitive(Sod::Dynamic((*DEFAULT).clone()))
         }
     }
-
-    impl PartialEq for Bcrypt {
-        fn eq(&self, other: &Self) -> bool {
-            self.cost == other.cost
-        }
-    }
 }
 
 benches!(Bcrypt);
@@ -91,6 +85,23 @@ benches!(Bcrypt);
 mod bcrypt_test {
     use hashing::*;
     use serde_mcf as mcf;
+
+    #[test]
+    fn sanity_check() {
+        let password = "hunter2";
+        let params = super::Bcrypt::default();
+        println!("{:?}", params);
+        let salt = ::get_salt();
+        let hash = params.compute(password.as_bytes(), &salt);
+        let hash2 = params.compute(password.as_bytes(), &salt);
+        assert_eq!(hash, hash2);
+        let out = Output {
+            alg: Algorithm::Single(params.into()),
+            salt: salt,
+            hash: hash,
+        };
+        println!("{:?}", mcf::to_string(&out).unwrap());
+    }
 
     #[test]
     fn verifies_bcrypt_hashes() {

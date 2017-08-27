@@ -128,6 +128,8 @@ impl PartialOrd<PrimitiveImpl> for PrimitiveImpl {
                 .zip(other.params_as_vec().iter())
                 .map(|(x, y)| if x == y {
                     Some(Ordering::Equal)
+                } else if x.0 != y.0 {
+                    None
                 } else if let Some(x) = x.1.parse::<f64>().ok() {
                     if let Some(y) = y.1.parse::<f64>().ok() {
                         x.partial_cmp(&y)
@@ -164,20 +166,37 @@ impl Deref for Primitive {
     }
 }
 
+/// Helper macro to perform a series of steps, and if the unwrap would fail,
+/// it instead returns `$default`.
+/// Once `TryFrom` is stabilised this wont be needed.
 macro_rules! unwrap_or_default {
-    ($default:expr, $var:expr,) => (
+    (rec $default:expr, $var:expr,) => (
         $var
     );
-    ($default:expr, $var:expr, r $code:expr, $($tail:tt,)*) => (
+    (rec $default:expr, $var:expr, r $code:expr, $($tail:tt,)*) => (
         if let Ok(x) = $code($var) {
-            unwrap_or_default!($default, x, $($tail,)*)
+            unwrap_or_default!(rec $default, x, $($tail,)*)
         } else {
             return $default
         }
     );
-    ($default:expr, $var:expr, o $code:expr, $($op:tt $tail:expr,)*) => (
+    (rec $default:expr, $var:expr, o $code:expr, $($op:tt $tail:expr,)*) => (
         if let Some(x) = $code($var) {
-            unwrap_or_default!($default, x, $($op $tail,)*)
+            unwrap_or_default!(rec $default, x, $($op $tail,)*)
+        } else {
+            return $default
+        }
+    );
+    ($default:expr, r $code:expr, $($tail:tt,)*) => (
+        if let Ok(x) = $var {
+            unwrap_or_default!(rec $default, x, $($tail,)*)
+        } else {
+            return $default
+        }
+    );
+    ($default:expr, o $var:expr, $($op:tt $tail:expr,)*) => (
+        if let Some(x) = $var {
+            unwrap_or_default!(rec $default, x, $($op $tail,)*)
         } else {
             return $default
         }
@@ -190,11 +209,11 @@ pub(crate) struct Poisoned;
 
 impl PrimitiveImpl for Poisoned {
     fn compute(&self, _password: &[u8], _salt: &[u8]) -> Vec<u8> {
-        vec![]
+        unreachable!()
     }
 
     fn verify(&self, _password: &[u8], _salt: &[u8], _hash: &[u8]) -> bool {
-        false
+        unreachable!()
     }
 
     fn params_as_vec(&self) -> Vec<(&'static str, String)> {
@@ -214,19 +233,19 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
             Hashes::Argon2i | Hashes::Argon2d => {
                 let passes = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["t"],
+                    o other.1.get("t"),
                     o Value::as_str,
                     r |x| { u32::from_str_radix(x, 10) },
                 );
                 let lanes = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["p"],
+                    o other.1.get("p"),
                     o Value::as_str,
                     r |x| { u32::from_str_radix(x, 10) },
                 );
                 let kib = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["m"],
+                    o other.1.get("m"),
                     o Value::as_str,
                     r |x| { u32::from_str_radix(x, 10) },
                 );
@@ -235,7 +254,7 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
             Hashes::BcryptMcf => {
                 let cost = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["cost"],
+                    o other.1.get("cost"),
                     o Value::as_str,
                     r |x| { u32::from_str_radix(x, 10) },
                 );
@@ -244,12 +263,12 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
             Hashes::Hmac => {
                 let hash_id = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["h"],
+                    o other.1.get("h"),
                     o Value::as_str,
                 );
                 let key_id = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["key_id"],
+                    o other.1.get("key_id"),
                     o Value::as_str,
                 );
                 Hmac::with_key(hash_from_id(hash_id),
@@ -261,7 +280,7 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
             ref x @ Hashes::Pbkdf2Sha512 => {
                 let iterations = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["n"],
+                    o other.1.get("n"),
                     o Value::as_str,
                     r |x| { u32::from_str_radix(x, 10) },
                 );
@@ -272,20 +291,20 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                     _ => panic!("impossible due to previous matching"),
                 }
             }
-            Hashes::ScryptMcf => {
+            Hashes::Scrypt => {
                 let log_n = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["log_n"],
+                    o other.1.get("ln"),
                     o value_as_int::<u8>,
                 );
                 let r = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["r"],
+                    o other.1.get("r"),
                     o value_as_int::<u32>,
                 );
                 let p = unwrap_or_default!(
                     Poisoned.into(),
-                    &other.1["p"],
+                    o other.1.get("p"),
                     o value_as_int::<u32>,
                 );
                 Scrypt::new(log_n, r, p)
@@ -315,25 +334,16 @@ impl<'a> From<(&'a Hashes, &'a String)> for Primitive {
     fn from(other: (&Hashes, &String)) -> Self {
         use self::Hashes::*;
         if let BcryptMcf = *other.0 {
-            let cost = u32::from_str_radix(other.1, 10)
-                .expect("parameter could not be parsed as an integer");
-            bcrypt::Bcrypt::new(cost)
+            if let Ok(cost) = u32::from_str_radix(other.1, 10) {
+                bcrypt::Bcrypt::new(cost)
+            } else {
+                Poisoned.into()
+            }
         } else {
-            panic!("No suitable parameter format found");
+            Poisoned.into()
         }
     }
 }
-
-impl<'a> From<(&'a Hashes, [u8; 9])> for Primitive {
-    fn from(other: (&Hashes, [u8; 9])) -> Self {
-        if let Hashes::Scrypt = *other.0 {
-            scrypt::Scrypt::from_bytes(other.1)
-        } else {
-            panic!("No suitable parameter format found");
-        }
-    }
-}
-
 
 impl<'a> From<&'a Primitive> for (Hashes, Map<String, Value>) {
     fn from(other: &Primitive) -> Self {
@@ -363,22 +373,28 @@ fn hash_from_id(id: &str) -> &'static digest::Algorithm {
     }
 }
 
-#[test]
-fn test_comparisons() {
-    let bcrypt = Bcrypt::new(10);
-    let bcrypt_better = Bcrypt::new(20);
 
-    let scrypt = Scrypt::new(10, 8, 1);
-    let scrypt_better = Scrypt::new(14, 8, 1);
-    let scrypt_diff = Scrypt::new(15, 4, 1);
+#[cfg(test)]
+mod test {
+    use super::*;
 
-    assert_eq!(bcrypt, bcrypt);
-    assert_eq!(scrypt, scrypt);
+    #[test]
+    fn test_comparisons() {
+        let bcrypt = Bcrypt::new(10);
+        let bcrypt_better = Bcrypt::new(20);
 
-    assert_eq!(bcrypt.partial_cmp(&bcrypt_better), Some(Ordering::Less));
-    assert!(scrypt < scrypt_better);
+        let scrypt = Scrypt::new(10, 8, 1);
+        let scrypt_better = Scrypt::new(14, 8, 1);
+        let scrypt_diff = Scrypt::new(15, 4, 1);
 
-    assert_eq!(scrypt.partial_cmp(&scrypt_diff), None);
-    assert_eq!(scrypt_better.partial_cmp(&scrypt_diff), None);
-    assert_eq!(scrypt.partial_cmp(&bcrypt), None);
+        assert_eq!(bcrypt, bcrypt);
+        assert_eq!(scrypt, scrypt);
+
+        assert_eq!(bcrypt.partial_cmp(&bcrypt_better), Some(Ordering::Less));
+        assert!(scrypt < scrypt_better);
+
+        assert_eq!(scrypt.partial_cmp(&scrypt_diff), None);
+        assert_eq!(scrypt_better.partial_cmp(&scrypt_diff), None);
+        assert_eq!(scrypt.partial_cmp(&bcrypt), None);
+    }
 }

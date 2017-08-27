@@ -4,6 +4,6 @@ keys: ~
 primitive: 
   id: "scrypt-mcf"
   params: 
-    log_n: 11
+    ln: 11
     r: 8
     p: 1

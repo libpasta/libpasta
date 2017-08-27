@@ -38,6 +38,7 @@ env_logger = "0.4"
 
 [features]
 bench = []
+long_tests = []
 simd = ["argon2rs/simd"]
 
 [[bin]]
