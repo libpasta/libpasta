@@ -223,9 +223,14 @@ mod test {
     }
 }
 
+#[cfg(features = "bench")]
 mod ring_bench {
+    use super::*;
     benches!(RingPbkdf2);
 }
+
+#[cfg(features = "bench")]
 mod fast_bench {
+    use super::*;
     benches!(Pbkdf2);
 }
