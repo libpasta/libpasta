@@ -78,7 +78,7 @@ struct PastaNest {
 
 // Deserialize Output using OutputVisitor
 impl<'de> Deserialize<'de> for Output {
-    fn deserialize<D>(deserializer: D) -> Result<Output, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>
     {
         deserializer.deserialize_struct("var_container", &VAR_STRUCT, OutputVisitor)
@@ -145,6 +145,10 @@ impl<'de> Visitor<'de> for OutputVisitor {
                         let output: serde_mcf::McfHash = map.next_value()?;
                         let prim = ::primitives::Primitive::from((&output.algorithm,
                                                                   &output.parameters));
+                        if prim == ::primitives::Poisoned.into() {
+                            #[allow(use_debug)]
+                            return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
+                        }
                         Ok(Output {
                             alg: Algorithm::Single(prim),
                             salt: output.salt,
@@ -175,7 +179,7 @@ impl<'de> Visitor<'de> for OutputVisitor {
 }
 
 impl<'de> Deserialize<'de> for SupportedVariants {
-    fn deserialize<D>(deserializer: D) -> Result<SupportedVariants, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>
     {
         deserializer.deserialize_identifier(VariantVisitor)
@@ -224,7 +228,7 @@ impl<'de> Visitor<'de> for VariantVisitor {
 
 // The deserializing of a `Primitive` is used in the nested `Pasta` variants.
 impl<'de> Deserialize<'de> for Primitive {
-    fn deserialize<D>(deserializer: D) -> Result<Primitive, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>
     {
         #[derive(Deserialize)]

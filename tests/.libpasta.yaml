@@ -2,7 +2,7 @@ default: Custom
 keyed: ~
 keys: ~
 primitive: 
-  id: "scrypt-mcf"
+  id: "scrypt"
   params: 
     ln: 11
     r: 8

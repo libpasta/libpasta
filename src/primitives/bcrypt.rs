@@ -69,7 +69,7 @@ mod native {
         }
 
         fn new_impl(cost: u32) -> Self {
-            Bcrypt { cost: cost }.into()
+            Self { cost: cost }.into()
         }
 
         /// Get the default `Bcrypt` parameter set.

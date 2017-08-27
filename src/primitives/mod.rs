@@ -130,8 +130,8 @@ impl PartialOrd<PrimitiveImpl> for PrimitiveImpl {
                     Some(Ordering::Equal)
                 } else if x.0 != y.0 {
                     None
-                } else if let Some(x) = x.1.parse::<f64>().ok() {
-                    if let Some(y) = y.1.parse::<f64>().ok() {
+                } else if let Ok(x) = x.1.parse::<f64>() {
+                    if let Ok(y) = y.1.parse::<f64>() {
                         x.partial_cmp(&y)
                     } else {
                         None
@@ -139,16 +139,12 @@ impl PartialOrd<PrimitiveImpl> for PrimitiveImpl {
                 } else {
                     None
                 })
-                .fold_while(None, |acc, c| if c.is_none() {
-                    Done(None)
-                } else {
-                    if acc.is_none() {
+                .fold_while(None, |acc, c| if acc.is_none() {
                         Continue(c)
-                    } else if c == acc || c == Some(Ordering::Equal) {
+                } else if c == acc || c == Some(Ordering::Equal) {
                         Continue(acc)
-                    } else {
+                } else {
                         Done(None)
-                    }
                 })
                 .into_inner()
         } else {

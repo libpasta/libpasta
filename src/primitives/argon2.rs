@@ -49,7 +49,7 @@ mod native {
         }
 
         fn new_impl(passes: u32, lanes: u32, kib: u32) -> Self {
-            Argon2 {
+            Self {
                 algorithm: argon2rs::Argon2::new(passes, lanes, kib, argon2rs::Variant::Argon2i)
                     .expect("invalid Argon2 parameters"),
             }

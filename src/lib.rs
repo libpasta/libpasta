@@ -49,9 +49,10 @@
 #![allow(unknown_lints)]
 #![deny(clippy_pedantic)]
 #![allow(
-    missing_docs_in_private_items,
- // we use fn new() -> Primitive for convenience
- // currently broken in  clippy v0.0.153
+    missing_docs_in_private_items, 
+    // we use fn new() -> Primitive for convenience
+    new_ret_no_self, 
+    use_debug,
 )]
 #![deny(
     const_err,

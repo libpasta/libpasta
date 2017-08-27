@@ -60,7 +60,7 @@ impl Default for AlgorithmChoice {
 
 impl Default for GlobalDefaults {
     fn default() -> Self {
-        GlobalDefaults {
+        Self {
             default: AlgorithmChoice::default(),
             keyed: None,
             keys: None,
@@ -118,7 +118,7 @@ pub fn to_string() -> String {
 impl GlobalDefaults {
     /// Create a new empty `GlobalDefaults` for setting parameters
     fn new() -> Self {
-        GlobalDefaults {
+        Self {
             default: AlgorithmChoice::default(),
             keyed: None,
             keys: None,
@@ -178,7 +178,7 @@ impl GlobalDefaults {
         }
     }
 
-    fn merge(&mut self, other: GlobalDefaults) {
+    fn merge(&mut self, other: Self) {
         if self.primitive.is_none() {
             if let Some(prim) = other.primitive {
                 self.set_primitive(prim);
@@ -191,7 +191,7 @@ impl GlobalDefaults {
         }
     }
 
-    fn merge_override(&mut self, other: GlobalDefaults) {
+    fn merge_override(&mut self, other: Self) {
         if let Some(prim) = other.primitive {
             self.set_primitive(prim);
         }

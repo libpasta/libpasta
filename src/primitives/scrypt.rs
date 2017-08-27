@@ -83,7 +83,7 @@ mod native {
         }
 
         fn new_impl(log_n: u8, r: u32, p: u32) -> Self {
-            Scrypt {
+            Self {
                 pbytes: convert_params!(log_n, r, p),
                 params: scrypt::ScryptParams::new(log_n, r, p),
             }
@@ -98,7 +98,7 @@ mod native {
         /// format used by scrypt.
         pub fn from_bytes(bytes: [u8; 9]) -> Primitive {
             let (log_n, r, p) = convert_params!(bytes);
-            Scrypt {
+            Self {
                     pbytes: bytes,
                     params: scrypt::ScryptParams::new(log_n, r, p),
                 }

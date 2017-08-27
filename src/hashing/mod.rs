@@ -98,13 +98,13 @@ impl Algorithm {
         let default: &Primitive = &*config::DEFAULT_PRIM;
 
         match *self {
-            Algorithm::Single(ref a2) => a2.ge(default),
+            Algorithm::Single(ref a2) |
             Algorithm::Nested { outer: ref a2, .. } => a2.ge(default),
         }
     }
 
     /// Copies `self` into a new `Algorithm` wrapped by `outer`
-    pub fn to_wrapped(&self, outer: Primitive) -> Algorithm {
+    pub fn to_wrapped(&self, outer: Primitive) -> Self {
         Algorithm::Nested {
             outer: outer,
             inner: Box::new(self.clone()),
@@ -112,7 +112,7 @@ impl Algorithm {
     }
 
     /// Moves `self` into a new `Algorithm` wrapped by `outer`
-    pub fn into_wrapped(self, outer: Primitive) -> Algorithm {
+    pub fn into_wrapped(self, outer: Primitive) -> Self {
         Algorithm::Nested {
             outer: outer,
             inner: Box::new(self),
