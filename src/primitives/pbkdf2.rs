@@ -231,7 +231,7 @@ mod test {
 
     macro_rules! primitive_round_trip {
         ($prim:expr) => (
-            let hash = serde_mcf::to_string(&$prim.hash("hunter2".to_string().into()).unwrap()).unwrap();
+            let hash = serde_mcf::to_string(&$prim.hash("hunter2".to_string().into())).unwrap();
             let _output: Output = serde_mcf::from_str(&hash).unwrap();
         )
     }

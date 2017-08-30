@@ -30,7 +30,7 @@ addons:
 before_script:
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]]; then
-        ( ( cargo install clippy && export CLIPPY=true ) || export CLIPPY=false );
+        ( ( cargo install clippy --force && export CLIPPY=true ) || export CLIPPY=false );
       fi
   - export PATH=$PATH:~/.cargo/bin
 

@@ -10,7 +10,6 @@
 use std::default::Default;
 
 use config;
-use errors::*;
 use primitives::Primitive;
 use super::Cleartext;
 
@@ -60,14 +59,14 @@ impl Output {
 
 impl Algorithm {
     /// Type-safe function to compute the hash of a password.
-    pub fn hash(&self, password: Cleartext) -> Result<Output> {
-        let salt = super::gen_salt()?;
+    pub fn hash(&self, password: Cleartext) -> Output {
+        let salt = super::gen_salt(&**config::RANDOMNESS_SOURCE);
         let output = self.hash_with_salt(&password.0, &salt);
-        Ok(Output {
+        Output {
             hash: output,
             salt: salt,
             alg: self.clone(),
-        })
+        }
     }
 
     /// Computes the hash output for given password and salt.
@@ -128,7 +127,7 @@ mod test {
     #[test]
     fn test_hash() {
         let alg = Algorithm::default();
-        let output = alg.hash("hunter2".to_string().into()).unwrap();
+        let output = alg.hash("hunter2".to_string().into());
         println!("{:?}", serde_mcf::to_string(&output).unwrap());
     }
 

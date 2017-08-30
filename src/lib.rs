@@ -141,7 +141,7 @@ pub mod errors {
 
 use errors::*;
 
-use ring::rand::{SecureRandom, SystemRandom};
+use ring::rand::SecureRandom;
 
 #[macro_use]
 mod bench;
@@ -165,10 +165,15 @@ impl From<String> for Cleartext {
 
 /// Generates a default hash for a given password.
 ///
+/// Will automatically generate a random salt. In the extreme case that the
+/// default source of randomness is unavailable, this will fallback to a seed
+/// generated when the library is initialised. An error will be logged when this
+/// happens.
+///
 /// This is the simplest way to use libpasta, and uses sane defaults.
 /// ## Panics
-/// If there is any error while attempting to hash, will panic.
-/// For default usage this should not happen.
+/// A panic indicates a problem with the serialization mechanisms, and should
+/// be reported.
 pub fn hash_password(password: String) -> String {
     hash_password_safe(password).expect("failed to hash password")
 }
@@ -177,7 +182,7 @@ pub fn hash_password(password: String) -> String {
 /// TODO: decide on which API is best to use.
 #[doc(hidden)]
 pub fn hash_password_safe(password: String) -> Result<String> {
-    let pwd_hash = config::DEFAULT_ALG.hash(password.into())?;
+    let pwd_hash = config::DEFAULT_ALG.hash(password.into());
     Ok(serde_mcf::to_string(&pwd_hash)?)
 }
 
@@ -210,7 +215,7 @@ pub fn verify_password_update_hash_safe(hash: &mut String, password: String) -> 
     let pwd_hash: Output = serde_mcf::from_str(hash)?;
     if pwd_hash.verify(password.clone().into()) {
         if pwd_hash.alg != *config::DEFAULT_ALG {
-            let new_hash = serde_mcf::to_string(&config::DEFAULT_ALG.hash(password.into())?)?;
+            let new_hash = serde_mcf::to_string(&config::DEFAULT_ALG.hash(password.into()))?;
             *hash = new_hash;
         }
         Ok(true)
@@ -256,16 +261,22 @@ pub fn migrate_hash_safe(hash: &mut String) -> Result<()> {
     Ok(())
 }
 
-fn gen_salt() -> Result<Vec<u8>> {
+fn gen_salt(rng: &SecureRandom) -> Vec<u8> {
     let mut salt = vec![0_u8; 16];
-    let rng = SystemRandom;
-    rng.fill(&mut salt)?;
-    Ok(salt)
+    if rng.fill(&mut salt).is_ok() {
+        salt
+    } else {
+        error!("failed to get fresh randomness, relying on backup seed to generate pseudoranom output");
+        config::backup_gen_salt()
+    }
 }
 
 #[cfg(test)]
+use ring::rand::SystemRandom;
+
+#[cfg(test)]
 fn get_salt() -> Vec<u8> {
-    gen_salt().unwrap()
+    gen_salt(&SystemRandom)
 }
 
 #[cfg(test)]
@@ -322,7 +333,7 @@ mod api_tests {
             inner: Box::new(Algorithm::default()),
             outer: DEFAULT_PRIM.clone(),
         };
-        let hash = params.hash(password.into()).unwrap();
+        let hash = params.hash(password.into());
 
         let password = "hunter2".to_owned();
         println!("{:?}", hash);
@@ -344,7 +355,7 @@ mod api_tests {
             inner: Box::new(Algorithm::default()),
             outer: DEFAULT_PRIM.clone(),
         };
-        let hash = params.hash(password.into()).unwrap();
+        let hash = params.hash(password.into());
 
         let password = "hunter2".to_owned();
         assert!(hash.verify(password.into()));
@@ -359,7 +370,7 @@ mod api_tests {
         let password = "hunter2".to_owned();
 
         let params = Algorithm::Single(Bcrypt::default());
-        let mut hash = serde_mcf::to_string(&params.hash(password.into()).unwrap()).unwrap();
+        let mut hash = serde_mcf::to_string(&params.hash(password.into())).unwrap();
         println!("Original: {:?}", hash);
         migrate_hash(&mut hash);
         println!("Migrated: {:?}", hash);
@@ -421,7 +432,43 @@ mod api_tests {
         let password = "hunter2".to_owned();
 
         let alg = Algorithm::Single(Bcrypt::default()).into_wrapped(Hmac::default().into());
-        let hash = serde_mcf::to_string(&alg.hash(password.clone().into()).unwrap()).unwrap();
+        let hash = serde_mcf::to_string(&alg.hash(password.clone().into())).unwrap();
         assert!(verify_password(&hash, password));
+    }
+
+    use std::result;
+    use std::marker::{Send, Sync};
+
+    struct NoRandomness;
+    static NO_RAND_REF: &'static (SecureRandom + Send + Sync) = &NoRandomness;
+    impl SecureRandom for NoRandomness {
+        fn fill(&self, _dest: &mut [u8]) -> result::Result<(), ring::error::Unspecified> {
+            Err(ring::error::Unspecified)
+        }
+    }
+
+    #[test]
+    fn no_randomness_ok() {
+        use primitives::Sod;
+        use std::mem;
+
+        // Using a broken PRNG still results in distinct salts
+        let salt1 = ::gen_salt(&NoRandomness);
+        let salt2 = ::gen_salt(&NoRandomness);
+        assert!(salt1 != salt2);
+
+
+        #[allow(unsafe_code)]
+        unsafe {
+            // We break the PRNG by replacing it with one which always fails!
+            let rng = mem::transmute::<*const Sod<SecureRandom + Send + Sync>, *mut Sod<SecureRandom + Send + Sync>>(&*config::RANDOMNESS_SOURCE);
+            *rng = Sod::Static(NO_RAND_REF);
+        }
+
+
+        // Yet two passwords differ
+        let hash1 = hash_password("hunter2".to_owned());
+        let hash2 = hash_password("hunter2".to_owned());
+        assert!(hash1 != hash2);
     }
 }

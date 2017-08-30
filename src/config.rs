@@ -18,8 +18,9 @@
 //! There are a number of ways panics can happen through using the configuration
 //! files. `libpasta` does not try to recover gracefully if
 use data_encoding;
-use serde_yaml;
 use lazy_static;
+use ring::{digest, hkdf, hmac, rand};
+use serde_yaml;
 
 use key;
 use key::Store;
@@ -29,9 +30,18 @@ use primitives::{self, Primitive, PrimitiveImpl, Sod};
 use std::default::Default;
 use std::env;
 use std::fs::File;
+use std::marker::{Send, Sync};
 use std::path::{Path, PathBuf};
 use std::io::BufReader;
 use std::sync::{Arc, Mutex};
+
+static RAND_REF: &'static (rand::SecureRandom + Send + Sync) = &rand::SystemRandom;
+lazy_static! {
+    /// Global source of randomness for generating salts
+    pub static ref RANDOMNESS_SOURCE: Sod<rand::SecureRandom + Send + Sync> = {
+        Sod::Static(RAND_REF)
+    };
+}
 
 /// Holds possible configuration options
 #[derive(Debug, Deserialize, Serialize)]
@@ -68,6 +78,35 @@ impl Default for GlobalDefaults {
             finalised: false,
         }
     }
+}
+
+struct BackupPrng {
+    seed: hmac::SigningKey,
+    counter: u32,
+}
+
+impl BackupPrng {
+    #[allow(cast_possible_truncation)]
+    fn gen_salt(&mut self) -> Vec<u8> {
+        self.counter += 1;
+        let mut output = vec![0_u8; 16];
+        hkdf::extract_and_expand(
+            &self.seed,
+            &[
+                (self.counter >> 24) as u8,
+                (self.counter >> 16) as u8,
+                (self.counter >>  8) as u8,
+                (self.counter      ) as u8,
+            ],
+            b"libpasta backup PRNG",
+            &mut output
+        );
+        output
+    }
+}
+
+pub(crate) fn backup_gen_salt() -> Vec<u8> {
+    RAND_BACKUP.lock().expect("could not acquire lock on RAND_BACKUP").gen_salt()
 }
 
 /// Adds the configuration specified in the supplied file to the global
@@ -231,6 +270,7 @@ fn finalize_global_config() {
     path.push(".libpasta.yaml");
     config.merge_file(path, false);
     trace!("Final config output:\n{}", config.to_string());
+    lazy_static::initialize(&RAND_BACKUP);
     config.finalize();
 }
 
@@ -305,6 +345,14 @@ lazy_static!{
         } else {
             Algorithm::Single(DEFAULT_PRIM.clone())
         }
+    };
+
+    static ref RAND_BACKUP: Arc<Mutex<BackupPrng>> = {
+        let rng = rand::SystemRandom::new();
+        Arc::new(Mutex::new(BackupPrng {
+            seed: hmac::SigningKey::generate(&digest::SHA256, &rng).expect("could not generate any randomness"),
+            counter: 1,
+        }))
     };
 }
 

@@ -43,5 +43,5 @@ extern crate serde_mcf;
 
 fn deprected_hash(password: &str) -> String {
     let alg = hashing::Algorithm::Single(primitives::Bcrypt::default());
-    serde_mcf::to_string(&alg.hash(password.to_owned().into()).unwrap()).unwrap()
+    serde_mcf::to_string(&alg.hash(password.to_owned().into())).unwrap()
 }
