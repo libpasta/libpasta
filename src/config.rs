@@ -20,6 +20,7 @@
 use data_encoding;
 use lazy_static;
 use ring::{digest, hkdf, hmac, rand};
+use ring::rand::SecureRandom;
 use serde_yaml;
 
 use key;
@@ -35,10 +36,10 @@ use std::path::{Path, PathBuf};
 use std::io::BufReader;
 use std::sync::{Arc, Mutex};
 
-static RAND_REF: &'static (rand::SecureRandom + Send + Sync) = &rand::SystemRandom;
+static RAND_REF: &'static (SecureRandom + Send + Sync) = &rand::SystemRandom;
 lazy_static! {
     /// Global source of randomness for generating salts
-    pub static ref RANDOMNESS_SOURCE: Sod<rand::SecureRandom + Send + Sync> = {
+    pub static ref RANDOMNESS_SOURCE: Sod<SecureRandom + Send + Sync> = {
         Sod::Static(RAND_REF)
     };
 }
@@ -81,26 +82,22 @@ impl Default for GlobalDefaults {
 }
 
 struct BackupPrng {
-    seed: hmac::SigningKey,
-    counter: u32,
+    salt: hmac::SigningKey,
+    seed: [u8; 32],
 }
 
 impl BackupPrng {
     #[allow(cast_possible_truncation)]
     fn gen_salt(&mut self) -> Vec<u8> {
-        self.counter += 1;
-        let mut output = vec![0_u8; 16];
+        let mut output = vec![0_u8; 48];
         hkdf::extract_and_expand(
+            &self.salt,
             &self.seed,
-            &[
-                (self.counter >> 24) as u8,
-                (self.counter >> 16) as u8,
-                (self.counter >>  8) as u8,
-                (self.counter      ) as u8,
-            ],
             b"libpasta backup PRNG",
             &mut output
         );
+        self.seed.copy_from_slice(&output[16..]);
+        output.truncate(16);
         output
     }
 }
@@ -349,9 +346,11 @@ lazy_static!{
 
     static ref RAND_BACKUP: Arc<Mutex<BackupPrng>> = {
         let rng = rand::SystemRandom::new();
+        let mut seed = [0u8; 32];
+        rng.fill(&mut seed).expect("could not generate any randomness");
         Arc::new(Mutex::new(BackupPrng {
-            seed: hmac::SigningKey::generate(&digest::SHA256, &rng).expect("could not generate any randomness"),
-            counter: 1,
+            salt: hmac::SigningKey::generate(&digest::SHA256, &rng).expect("could not generate any randomness"),
+            seed: seed,
         }))
     };
 }
