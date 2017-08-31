@@ -57,7 +57,7 @@ fn raw_argon2(_b: &mut Bencher) {
 
             let start = time::precise_time_ns();
             for _ in 0..reps {
-                let _ = serde_mcf::to_string(&pastalg.hash("hunter2".to_owned().into()).unwrap());
+                let _ = serde_mcf::to_string(&pastalg.hash("hunter2".to_owned().into()));
             }
             let end = time::precise_time_ns();
             let libp = (end - start) as f64;

@@ -5,4 +5,4 @@ mod common;
 
 use libpasta::primitives::Argon2;
 
-config_test!(Argon2);
+config_test!(Argon2, "$$argon2");

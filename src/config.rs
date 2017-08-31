@@ -18,8 +18,10 @@
 //! There are a number of ways panics can happen through using the configuration
 //! files. `libpasta` does not try to recover gracefully if
 use data_encoding;
-use serde_yaml;
 use lazy_static;
+use ring::{digest, hkdf, hmac, rand};
+use ring::rand::SecureRandom;
+use serde_yaml;
 
 use key;
 use key::Store;
@@ -29,9 +31,18 @@ use primitives::{self, Primitive, PrimitiveImpl, Sod};
 use std::default::Default;
 use std::env;
 use std::fs::File;
+use std::marker::{Send, Sync};
 use std::path::{Path, PathBuf};
 use std::io::BufReader;
 use std::sync::{Arc, Mutex};
+
+static RAND_REF: &'static (SecureRandom + Send + Sync) = &rand::SystemRandom;
+lazy_static! {
+    /// Global source of randomness for generating salts
+    pub static ref RANDOMNESS_SOURCE: Sod<SecureRandom + Send + Sync> = {
+        Sod::Static(RAND_REF)
+    };
+}
 
 /// Holds possible configuration options
 #[derive(Debug, Deserialize, Serialize)]
@@ -60,7 +71,7 @@ impl Default for AlgorithmChoice {
 
 impl Default for GlobalDefaults {
     fn default() -> Self {
-        GlobalDefaults {
+        Self {
             default: AlgorithmChoice::default(),
             keyed: None,
             keys: None,
@@ -68,6 +79,31 @@ impl Default for GlobalDefaults {
             finalised: false,
         }
     }
+}
+
+struct BackupPrng {
+    salt: hmac::SigningKey,
+    seed: [u8; 32],
+}
+
+impl BackupPrng {
+    #[allow(cast_possible_truncation)]
+    fn gen_salt(&mut self) -> Vec<u8> {
+        let mut output = vec![0_u8; 48];
+        hkdf::extract_and_expand(
+            &self.salt,
+            &self.seed,
+            b"libpasta backup PRNG",
+            &mut output
+        );
+        self.seed.copy_from_slice(&output[16..]);
+        output.truncate(16);
+        output
+    }
+}
+
+pub(crate) fn backup_gen_salt() -> Vec<u8> {
+    RAND_BACKUP.lock().expect("could not acquire lock on RAND_BACKUP").gen_salt()
 }
 
 /// Adds the configuration specified in the supplied file to the global
@@ -118,7 +154,7 @@ pub fn to_string() -> String {
 impl GlobalDefaults {
     /// Create a new empty `GlobalDefaults` for setting parameters
     fn new() -> Self {
-        GlobalDefaults {
+        Self {
             default: AlgorithmChoice::default(),
             keyed: None,
             keys: None,
@@ -178,7 +214,7 @@ impl GlobalDefaults {
         }
     }
 
-    fn merge(&mut self, other: GlobalDefaults) {
+    fn merge(&mut self, other: Self) {
         if self.primitive.is_none() {
             if let Some(prim) = other.primitive {
                 self.set_primitive(prim);
@@ -191,7 +227,7 @@ impl GlobalDefaults {
         }
     }
 
-    fn merge_override(&mut self, other: GlobalDefaults) {
+    fn merge_override(&mut self, other: Self) {
         if let Some(prim) = other.primitive {
             self.set_primitive(prim);
         }
@@ -231,6 +267,7 @@ fn finalize_global_config() {
     path.push(".libpasta.yaml");
     config.merge_file(path, false);
     trace!("Final config output:\n{}", config.to_string());
+    lazy_static::initialize(&RAND_BACKUP);
     config.finalize();
 }
 
@@ -305,6 +342,16 @@ lazy_static!{
         } else {
             Algorithm::Single(DEFAULT_PRIM.clone())
         }
+    };
+
+    static ref RAND_BACKUP: Arc<Mutex<BackupPrng>> = {
+        let rng = rand::SystemRandom::new();
+        let mut seed = [0u8; 32];
+        rng.fill(&mut seed).expect("could not generate any randomness");
+        Arc::new(Mutex::new(BackupPrng {
+            salt: hmac::SigningKey::generate(&digest::SHA256, &rng).expect("could not generate any randomness"),
+            seed: seed,
+        }))
     };
 }
 

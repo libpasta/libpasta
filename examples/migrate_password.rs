@@ -39,8 +39,9 @@ fn main() {
 // Do not use this code as a good example of how to do hashing.
 // This is intentionally awkward
 use libpasta::{hashing, primitives};
+extern crate serde_mcf;
 
 fn deprected_hash(password: &str) -> String {
     let alg = hashing::Algorithm::Single(primitives::Bcrypt::default());
-    alg.hash(password.to_owned().into()).unwrap().to_string()
+    serde_mcf::to_string(&alg.hash(password.to_owned().into())).unwrap()
 }

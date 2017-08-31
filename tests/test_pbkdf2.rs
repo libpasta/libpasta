@@ -5,4 +5,4 @@ mod common;
 
 use libpasta::primitives::Pbkdf2;
 
-config_test!(Pbkdf2);
+config_test!(Pbkdf2, "$$pbkdf2");

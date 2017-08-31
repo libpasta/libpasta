@@ -5,4 +5,4 @@ mod common;
 
 use libpasta::primitives::Bcrypt;
 
-config_test!(Bcrypt);
+config_test!(Bcrypt, "$$2y");

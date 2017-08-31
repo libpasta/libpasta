@@ -6,14 +6,10 @@
 //! recursive structure, containing either a single `Primitive`, or a
 //! `Primitive` and a further layer of `Algorithm`. This is the hashing onion.
 
-use serde_mcf;
-
-use std::cmp::PartialOrd;
+// use std::cmp::PartialOrd;
 use std::default::Default;
-use std::fmt;
 
 use config;
-use errors::*;
 use primitives::Primitive;
 use super::Cleartext;
 
@@ -57,32 +53,20 @@ impl Default for Algorithm {
 impl Output {
     /// Verifies that the supplied password matches the hashed value.
     pub fn verify(&self, password: Cleartext) -> bool {
-        self.hash == self.alg.hash_with_salt(&password.0, &self.salt)
+        self.alg.verify(&password.0, &self.salt, &self.hash)
     }
 }
-
-impl fmt::Display for Output {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Ok(s) = serde_mcf::to_string(self) {
-            write!(f, "{}", s)
-        } else {
-            error!("could not format hash output as serde_mcf string");
-            Err(fmt::Error::default())
-        }
-    }
-}
-
 
 impl Algorithm {
     /// Type-safe function to compute the hash of a password.
-    pub fn hash(&self, password: Cleartext) -> Result<Output> {
-        let salt = super::gen_salt()?;
+    pub fn hash(&self, password: Cleartext) -> Output {
+        let salt = super::gen_salt(&**config::RANDOMNESS_SOURCE);
         let output = self.hash_with_salt(&password.0, &salt);
-        Ok(Output {
+        Output {
             hash: output,
             salt: salt,
             alg: self.clone(),
-        })
+        }
     }
 
     /// Computes the hash output for given password and salt.
@@ -96,13 +80,22 @@ impl Algorithm {
         }
     }
 
+    /// Verifies the password, salt and hash are matching by recursively
+    /// re-computing the hash and verifying the final value.
+    pub fn verify(&self, password: &[u8], salt: &[u8], hash: &[u8]) -> bool {
+        match *self {
+            Algorithm::Single(ref p) => p.verify(password, salt, hash),
+            Algorithm::Nested { ref inner, ref outer } => {
+                let innerput = inner.hash_with_salt(password, salt);
+                outer.verify(&innerput, salt, hash)
+            }
+        }
+    }
+
     /// Test whether the current 'Algorithm` is sufficiently secure.
-    ///
-    /// TODO: Implement different ways to determine "secure".
-    /// For now, this just checks you are using Argon2 with a decent memory
-    /// parameter.
     pub fn needs_migrating(&self) -> bool {
         let default: &Primitive = &*config::DEFAULT_PRIM;
+
         match *self {
             Algorithm::Single(ref a2) |
             Algorithm::Nested { outer: ref a2, .. } => a2.ge(default),
@@ -110,7 +103,7 @@ impl Algorithm {
     }
 
     /// Copies `self` into a new `Algorithm` wrapped by `outer`
-    pub fn to_wrapped(&self, outer: Primitive) -> Algorithm {
+    pub fn to_wrapped(&self, outer: Primitive) -> Self {
         Algorithm::Nested {
             outer: outer,
             inner: Box::new(self.clone()),
@@ -118,7 +111,7 @@ impl Algorithm {
     }
 
     /// Moves `self` into a new `Algorithm` wrapped by `outer`
-    pub fn into_wrapped(self, outer: Primitive) -> Algorithm {
+    pub fn into_wrapped(self, outer: Primitive) -> Self {
         Algorithm::Nested {
             outer: outer,
             inner: Box::new(self),
@@ -126,10 +119,23 @@ impl Algorithm {
     }
 }
 
-#[test]
-fn test_hash() {
-    let alg = Algorithm::default();
-    let output = alg.hash("hunter2".to_string().into()).unwrap();
-    // assert!(output);
-    println!("{:?}", serde_mcf::to_string(&output).unwrap());
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serde_mcf;
+
+    #[test]
+    fn test_hash() {
+        let alg = Algorithm::default();
+        let output = alg.hash("hunter2".to_string().into());
+        println!("{:?}", serde_mcf::to_string(&output).unwrap());
+    }
+
+    #[test]
+    fn test_wrapped() {
+        let alg = Algorithm::default();
+        let prim = &*config::DEFAULT_PRIM;
+        let _alg1 = alg.to_wrapped(prim.clone());
+        let _alg = alg.into_wrapped(prim.clone());
+    }
 }
