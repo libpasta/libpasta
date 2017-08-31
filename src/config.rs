@@ -346,7 +346,7 @@ lazy_static!{
 
     static ref RAND_BACKUP: Arc<Mutex<BackupPrng>> = {
         let rng = rand::SystemRandom::new();
-        let mut seed = [0u8; 32];
+        let mut seed = [0_u8; 32];
         rng.fill(&mut seed).expect("could not generate any randomness");
         Arc::new(Mutex::new(BackupPrng {
             salt: hmac::SigningKey::generate(&digest::SHA256, &rng).expect("could not generate any randomness"),

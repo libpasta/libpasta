@@ -3,7 +3,6 @@
 extern crate argon2rs;
 extern crate cargon;
 extern crate libpasta;
-extern crate ring;
 extern crate serde_mcf;
 extern crate test;
 extern crate time;

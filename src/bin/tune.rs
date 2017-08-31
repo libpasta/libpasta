@@ -3,7 +3,6 @@ extern crate argon2rs;
 extern crate clap;
 extern crate libpasta;
 extern crate optimization;
-extern crate serde_yaml;
 extern crate sys_info;
 extern crate time;
 
