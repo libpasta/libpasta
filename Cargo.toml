@@ -40,7 +40,3 @@ env_logger = "0.4"
 bench = []
 long_tests = []
 simd = ["argon2rs/simd"]
-
-[[bin]]
-name = "tune"
-doc = false
