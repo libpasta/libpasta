@@ -27,7 +27,6 @@ use std::fmt;
 /// `Bcrypt`: `$(2a|2b|2x|2y)$<cost>$<salthash>`
 ///    where salthash is a non-standard base64 encoding.
 /// `Mcf`: `$<alg-id>$<params map>$<salt>$<hash>`
-/// `Scrypt`: `$(scrypt|rscrypt)$<params>$<salt>$<hash>`
 /// `Pasta`: `$<MCF-hash>` or `$!<Pasta-hash>` (recursively)
 #[derive(Debug, PartialEq)]
 enum SupportedVariants {

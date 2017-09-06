@@ -326,21 +326,6 @@ fn value_as_int<T>(val: &Value) -> Option<T>
     }
 }
 
-impl<'a> From<(&'a Hashes, &'a String)> for Primitive {
-    fn from(other: (&Hashes, &String)) -> Self {
-        use self::Hashes::*;
-        if let BcryptMcf = *other.0 {
-            if let Ok(cost) = u32::from_str_radix(other.1, 10) {
-                bcrypt::Bcrypt::new(cost)
-            } else {
-                Poisoned.into()
-            }
-        } else {
-            Poisoned.into()
-        }
-    }
-}
-
 impl<'a> From<&'a Primitive> for (Hashes, Map<String, Value>) {
     fn from(other: &Primitive) -> Self {
         let mut map = Map::new();

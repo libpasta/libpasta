@@ -465,7 +465,6 @@ mod api_tests {
             *rng = Sod::Static(NO_RAND_REF);
         }
 
-
         // Yet two passwords differ
         let hash1 = hash_password("hunter2".to_owned());
         let hash2 = hash_password("hunter2".to_owned());
