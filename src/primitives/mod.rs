@@ -162,44 +162,6 @@ impl Deref for Primitive {
     }
 }
 
-/// Helper macro to perform a series of steps, and if the unwrap would fail,
-/// it instead returns `$default`.
-/// Once `TryFrom` is stabilised this wont be needed.
-macro_rules! unwrap_or_default {
-    (rec $default:expr, $var:expr,) => (
-        $var
-    );
-    (rec $default:expr, $var:expr, r $code:expr, $($tail:tt,)*) => (
-        if let Ok(x) = $code($var) {
-            unwrap_or_default!(rec $default, x, $($tail,)*)
-        } else {
-            return $default
-        }
-    );
-    (rec $default:expr, $var:expr, o $code:expr, $($op:tt $tail:expr,)*) => (
-        if let Some(x) = $code($var) {
-            unwrap_or_default!(rec $default, x, $($op $tail,)*)
-        } else {
-            return $default
-        }
-    );
-    ($default:expr, r $code:expr, $($tail:tt,)*) => (
-        if let Ok(x) = $var {
-            unwrap_or_default!(rec $default, x, $($tail,)*)
-        } else {
-            return $default
-        }
-    );
-    ($default:expr, o $var:expr, $($op:tt $tail:expr,)*) => (
-        if let Some(x) = $var {
-            unwrap_or_default!(rec $default, x, $($op $tail,)*)
-        } else {
-            return $default
-        }
-    );
-}
-
-
 #[derive(Debug, PartialEq, PartialOrd)]
 pub(crate) struct Poisoned;
 
@@ -221,65 +183,42 @@ impl PrimitiveImpl for Poisoned {
     }
 }
 
+/// Helper macro to unwrap the value or early return with `Poisoned`.
+/// Necessary until `TryFrom` stabilises.
+macro_rules! try_or_poisoned {
+    ($f:expr) => (
+        match $f {
+            Some(x) => x,
+            None => return Poisoned.into()
+        }
+    )
+}
+
 /// This will be `TryFrom` when it stabilises.
 /// For now we just return a `Poisoned`
 impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
     fn from(other: (&Hashes, &Map<String, Value>)) -> Self {
         match *other.0 {
             Hashes::Argon2i | Hashes::Argon2d => {
-                let passes = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("t"),
-                    o Value::as_str,
-                    r |x| { u32::from_str_radix(x, 10) },
-                );
-                let lanes = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("p"),
-                    o Value::as_str,
-                    r |x| { u32::from_str_radix(x, 10) },
-                );
-                let kib = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("m"),
-                    o Value::as_str,
-                    r |x| { u32::from_str_radix(x, 10) },
-                );
+                let passes = try_or_poisoned!(other.1.get("t").and_then(value_as_int));
+                let lanes = try_or_poisoned!(other.1.get("p").and_then(value_as_int));
+                let kib = try_or_poisoned!(other.1.get("m").and_then(value_as_int));
                 Argon2::new(passes, lanes, kib)
             }
             Hashes::BcryptMcf => {
-                let cost = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("cost"),
-                    o Value::as_str,
-                    r |x| { u32::from_str_radix(x, 10) },
-                );
+                let cost = try_or_poisoned!(other.1.get("cost").and_then(value_as_int));
                 Bcrypt::new(cost)
             }
             Hashes::Hmac => {
-                let hash_id = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("h"),
-                    o Value::as_str,
-                );
-                let key_id = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("key_id"),
-                    o Value::as_str,
-                );
-                Hmac::with_key(hash_from_id(hash_id),
-                               &::key::KEY_STORE.get_key(key_id)
-                                   .expect("could not get key from store"))
+                let hash_id = try_or_poisoned!(other.1.get("h").and_then(Value::as_str));
+                let key_id = try_or_poisoned!(other.1.get("key_id").and_then(Value::as_str));
+                let key = try_or_poisoned!(::key::KEY_STORE.get_key(key_id));
+                Hmac::with_key(hash_from_id(hash_id), &key)
             }
             ref x @ Hashes::Pbkdf2Sha1 |
             ref x @ Hashes::Pbkdf2Sha256 |
             ref x @ Hashes::Pbkdf2Sha512 => {
-                let iterations = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("n"),
-                    o Value::as_str,
-                    r |x| { u32::from_str_radix(x, 10) },
-                );
+                let iterations = try_or_poisoned!(other.1.get("n").and_then(value_as_int));
                 match *x {
                     Hashes::Pbkdf2Sha1 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA1),
                     Hashes::Pbkdf2Sha256 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA256),
@@ -288,21 +227,9 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                 }
             }
             Hashes::Scrypt => {
-                let log_n = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("ln"),
-                    o value_as_int::<u8>,
-                );
-                let r = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("r"),
-                    o value_as_int::<u32>,
-                );
-                let p = unwrap_or_default!(
-                    Poisoned.into(),
-                    o other.1.get("p"),
-                    o value_as_int::<u32>,
-                );
+                let log_n = try_or_poisoned!(other.1.get("ln").and_then(value_as_int));
+                let r = try_or_poisoned!(other.1.get("r").and_then(value_as_int));
+                let p = try_or_poisoned!(other.1.get("p").and_then(value_as_int));
                 Scrypt::new(log_n, r, p)
             }
             _ => Poisoned.into(),
@@ -323,21 +250,6 @@ fn value_as_int<T>(val: &Value) -> Option<T>
         }
         Value::String(ref s) => T::from_str_radix(s.as_str(), 10).ok(),
         _ => None,
-    }
-}
-
-impl<'a> From<(&'a Hashes, &'a String)> for Primitive {
-    fn from(other: (&Hashes, &String)) -> Self {
-        use self::Hashes::*;
-        if let BcryptMcf = *other.0 {
-            if let Ok(cost) = u32::from_str_radix(other.1, 10) {
-                bcrypt::Bcrypt::new(cost)
-            } else {
-                Poisoned.into()
-            }
-        } else {
-            Poisoned.into()
-        }
     }
 }
 
