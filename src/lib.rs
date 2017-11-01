@@ -147,6 +147,7 @@ use ring::rand::SecureRandom;
 mod bench;
 
 pub mod config;
+pub use config::Config;
 pub mod key;
 pub mod hashing;
 use hashing::Output;
@@ -175,15 +176,15 @@ impl From<String> for Cleartext {
 /// A panic indicates a problem with the serialization mechanisms, and should
 /// be reported.
 pub fn hash_password(password: String) -> String {
-    hash_password_safe(password).expect("failed to hash password")
+    config::DEFAULT_CONFIG.hash_password(password)
 }
 
 /// Same as `hash_password` but returns `Result` to allow error handling.
 /// TODO: decide on which API is best to use.
 #[doc(hidden)]
 pub fn hash_password_safe(password: String) -> Result<String> {
-    let pwd_hash = config::DEFAULT_ALG.hash(password.into());
-    Ok(serde_mcf::to_string(&pwd_hash)?)
+    config::DEFAULT_CONFIG.hash_password_safe(password)
+
 }
 
 /// Verifies the provided password matches the inputted hash string.
@@ -206,22 +207,14 @@ pub fn verify_password_safe(hash: &str, password: String) -> Result<bool> {
 /// and performs an in-place update of the hash value if the password verifies.
 /// Hence this needs to take a mutable `String` reference.
 pub fn verify_password_update_hash(hash: &mut String, password: String) -> bool {
-    verify_password_update_hash_safe(hash, password).unwrap_or(false)
+    config::DEFAULT_CONFIG.verify_password_update_hash(hash, password)
 }
 
 /// Same as `verify_password_update_hash`, but returns `Result` to allow error handling.
 #[doc(hidden)]
 pub fn verify_password_update_hash_safe(hash: &mut String, password: String) -> Result<bool> {
-    let pwd_hash: Output = serde_mcf::from_str(hash)?;
-    if pwd_hash.verify(password.clone().into()) {
-        if pwd_hash.alg != *config::DEFAULT_ALG {
-            let new_hash = serde_mcf::to_string(&config::DEFAULT_ALG.hash(password.into()))?;
-            *hash = new_hash;
-        }
-        Ok(true)
-    } else {
-        Ok(false)
-    }
+    config::DEFAULT_CONFIG.verify_password_update_hash_safe(hash, password)
+
 }
 
 
@@ -234,31 +227,14 @@ pub fn verify_password_update_hash_safe(hash: &mut String, password: String) -> 
 /// If the password is also available, the `verify_password_update_hash` should
 /// instead be used.
 pub fn migrate_hash(hash: &mut String) {
-    migrate_hash_safe(hash).expect("failed to migrate password");
+    config::DEFAULT_CONFIG.migrate_hash(hash)
 }
 
 /// Same as `migrate_hash` but returns `Result` to allow error handling.
 #[doc(hidden)]
 pub fn migrate_hash_safe(hash: &mut String) -> Result<()> {
-    let pwd_hash: Output = serde_mcf::from_str(hash)?;
+    config::DEFAULT_CONFIG.migrate_hash_safe(hash)
 
-    if !pwd_hash.alg.needs_migrating() {
-        // no need to migrate
-        return Ok(());
-    }
-
-    let new_params = pwd_hash.alg.to_wrapped(config::DEFAULT_PRIM.clone());
-    let new_salt = pwd_hash.salt;
-
-    let new_hash = (*config::DEFAULT_PRIM).compute(&pwd_hash.hash, &new_salt);
-    let new_hash = Output {
-        alg: new_params,
-        hash: new_hash,
-        salt: new_salt,
-    };
-
-    *hash = serde_mcf::to_string(&new_hash)?;
-    Ok(())
 }
 
 fn gen_salt(rng: &SecureRandom) -> Vec<u8> {

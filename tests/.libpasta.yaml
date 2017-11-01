@@ -1,6 +1,5 @@
 default: Custom
 keyed: ~
-keys: ~
 primitive: 
   id: "scrypt"
   params: 

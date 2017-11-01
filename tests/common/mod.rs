@@ -14,9 +14,9 @@ macro_rules! config_test {
             common::init_test();
 
             let password = "hunter2";
-            libpasta::config::set_primitive($name::default());
-            trace!("config setup as: {}", libpasta::config::to_string());
-            let password_hash = libpasta::hash_password(password.to_string());
+            let config = libpasta::Config::with_primitive($name::default());
+            trace!("config setup as: {}", config.to_string());
+            let password_hash = config.hash_password(password.to_string());
             assert!(password_hash.starts_with($prefix));
             assert!(libpasta::verify_password(&password_hash, password.to_string()));
         }

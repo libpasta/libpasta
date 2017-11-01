@@ -17,22 +17,20 @@
 //!
 //! There are a number of ways panics can happen through using the configuration
 //! files. `libpasta` does not try to recover gracefully if
-use data_encoding;
 use lazy_static;
 use ring::{digest, hkdf, hmac, rand};
 use ring::rand::SecureRandom;
+use serde_mcf;
 use serde_yaml;
 
-use key;
-use key::Store;
-use hashing::Algorithm;
-use primitives::{self, Primitive, PrimitiveImpl, Sod};
+use errors::*;
+use hashing::{Algorithm, Output};
+use primitives::{self, Primitive, Sod};
 
 use std::default::Default;
-use std::env;
 use std::fs::File;
 use std::marker::{Send, Sync};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::io::BufReader;
 use std::sync::{Arc, Mutex};
 
@@ -40,44 +38,225 @@ static RAND_REF: &'static (SecureRandom + Send + Sync) = &rand::SystemRandom;
 lazy_static! {
     /// Global source of randomness for generating salts
     pub static ref RANDOMNESS_SOURCE: Sod<SecureRandom + Send + Sync> = {
+        lazy_static::initialize(&RAND_BACKUP);
         Sod::Static(RAND_REF)
     };
+
+    /// Backup PRNG source for when `SystemRandom`is unavailable
+    static ref RAND_BACKUP: Arc<Mutex<BackupPrng>> = {
+        let rng = rand::SystemRandom::new();
+        let mut seed = [0_u8; 32];
+        rng.fill(&mut seed).expect("could not generate any randomness");
+        Arc::new(Mutex::new(BackupPrng {
+            salt: hmac::SigningKey::generate(&digest::SHA256, &rng).expect("could not generate any randomness"),
+            seed: seed,
+        }))
+    };
+
+    /// Default primitive used for hash computations
+    pub static ref DEFAULT_PRIM: Primitive = {
+        primitives::Scrypt::default()
+    };
+
+    /// Default algorithm to use for new hash computations.
+    pub static ref DEFAULT_ALG: Algorithm = {
+        Algorithm::Single(DEFAULT_PRIM.clone())
+    };
+
+    /// Default configuration set.
+    pub static ref DEFAULT_CONFIG: Config = {
+        Config::default()
+    };
+}
+
+/// Configuration presets
+pub enum Presets {
+    /// The defaults used, useful to make small tweaks to the default set
+    Default,
+    /// Suitable values for interactive logins (~0.5s hashing times)
+    Interactive,
+    /// Stronger values for non-interactive actions, e.g. disk encryption (~3s hashing times)
+    NonInteractive,
+    /// Combines both `Argon2i` and `scrypt` for side-channel resistance.
+    Paranoid,
 }
 
 /// Holds possible configuration options
 #[derive(Debug, Deserialize, Serialize)]
-struct GlobalDefaults {
-    #[serde(default)]
-    default: AlgorithmChoice,
-    keyed: Option<Primitive>,
-    keys: Option<Vec<Vec<u8>>>,
-    primitive: Option<Primitive>,
+pub struct Config {
     #[serde(skip)]
-    finalised: bool,
+    algorithm: Algorithm,
+    #[serde(default = "primitives::Scrypt::default")]
+    primitive: Primitive,
+    keyed: Option<Primitive>,
+    #[serde(default)]
+    keys: Vec<Vec<u8>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-enum AlgorithmChoice {
-    Argon2i,
-    Scrypt,
-    Custom,
-}
-
-impl Default for AlgorithmChoice {
+impl Default for Config {
     fn default() -> Self {
-        AlgorithmChoice::Scrypt
+        Self {
+            algorithm: DEFAULT_ALG.clone(),
+            primitive: DEFAULT_PRIM.clone(),
+            keyed: None,
+            keys: Vec::new(),
+        }
     }
 }
 
-impl Default for GlobalDefaults {
-    fn default() -> Self {
+
+impl Config {
+    /// Create a new empty `Config` for setting parameters
+    pub fn with_primitive(primitive: Primitive) -> Self {
         Self {
-            default: AlgorithmChoice::default(),
+            algorithm: Algorithm::Single(primitive.clone()),
+            primitive: primitive,
             keyed: None,
-            keys: None,
-            primitive: None,
-            finalised: false,
+            keys: Vec::new(),
         }
+    }
+
+    /// Generates a `Config` from a selected preset
+    /// configuration.
+    pub fn from_preset(preset: Presets) -> Self {
+        match preset {
+            Presets::Default => Config::default(),
+            Presets::Interactive => unimplemented!(),
+            Presets::NonInteractive => unimplemented!(),
+            Presets::Paranoid => unimplemented!(),
+        }
+    }
+
+    /// Generates a `Config` from a .toml file.
+    /// Config files can be generated using the `Config::to_string` method on 
+    /// an existing config.
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let file = File::open(path.as_ref());
+        if let Ok(file) = file {
+            let reader = BufReader::new(file);
+            let mut config: Config = serde_yaml::from_reader(reader).expect("invalid config file");
+            config.algorithm = Algorithm::Single(config.primitive.clone());
+            if let Some(kh) = config.keyed.clone() {
+                config.algorithm = config.algorithm.into_wrapped(kh);
+            }
+            trace!("imported config as: {:?}", config);
+            Ok(config)
+            
+        } else {
+            info!("could not open config file {:?}: {:?}", path.as_ref(), file);
+            Err("could not open config file".into())
+        }
+    }
+
+
+    /// Generates hash for a given password.
+    ///
+    /// Will automatically generate a random salt. In the extreme case that the
+    /// default source of randomness is unavailable, this will fallback to a seed
+    /// generated when the library is initialised. An error will be logged when this
+    /// happens.
+    ///    /// ## Panics
+    /// A panic indicates a problem with the serialization mechanisms, and should
+    /// be reported.
+    pub fn hash_password(&self, password: String) -> String {
+        self.hash_password_safe(password).expect("failed to hash password")
+    }
+
+    /// Same as `hash_password` but returns `Result` to allow error handling.
+    /// TODO: decide on which API is best to use.
+    #[doc(hidden)]
+    pub fn hash_password_safe(&self, password: String) -> Result<String> {
+        let pwd_hash = self.algorithm.hash(password.into());
+        Ok(serde_mcf::to_string(&pwd_hash)?)
+    }
+
+    /// Verifies a supplied password against a previously computed password hash,
+    /// and performs an in-place update of the hash value if the password verifies.
+    /// Hence this needs to take a mutable `String` reference.
+    pub fn verify_password_update_hash(&self, hash: &mut String, password: String) -> bool {
+        self.verify_password_update_hash_safe(hash, password).unwrap_or(false)
+    }
+
+    /// Same as `verify_password_update_hash`, but returns `Result` to allow error handling.
+    #[doc(hidden)]
+    pub fn verify_password_update_hash_safe(&self, hash: &mut String, password: String) -> Result<bool> {
+        let pwd_hash: Output = serde_mcf::from_str(hash)?;
+        if pwd_hash.verify(password.clone().into()) {
+            if pwd_hash.alg != *DEFAULT_ALG {
+                let new_hash = serde_mcf::to_string(&self.algorithm.hash(password.into()))?;
+                *hash = new_hash;
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+
+    /// Migrate the input hash to the current recommended hash.
+    ///
+    /// Note that this does *not* require the password. This is for batch updating
+    /// of hashes, where the password is not available. This performs an onion
+    /// approach, returning `new_hash(old_hash)`.
+    ///
+    /// If the password is also available, the `verify_password_update_hash` should
+    /// instead be used.
+    pub fn migrate_hash(&self, hash: &mut String) {
+        self.migrate_hash_safe(hash).expect("failed to migrate password");
+    }
+
+    /// Same as `migrate_hash` but returns `Result` to allow error handling.
+    #[doc(hidden)]
+    pub fn migrate_hash_safe(&self, hash: &mut String) -> Result<()> {
+        let pwd_hash: Output = serde_mcf::from_str(hash)?;
+
+        if !pwd_hash.alg.needs_migrating() {
+            // no need to migrate
+            return Ok(());
+        }
+
+        let new_params = pwd_hash.alg.to_wrapped(self.primitive.clone());
+        let new_salt = pwd_hash.salt;
+
+        let new_hash = self.primitive.compute(&pwd_hash.hash, &new_salt);
+        let new_hash = Output {
+            alg: new_params,
+            hash: new_hash,
+            salt: new_salt,
+        };
+
+        *hash = serde_mcf::to_string(&new_hash)?;
+        Ok(())
+    }
+
+
+    /// Add a new key into the list of configured keys
+    pub fn add_key(&mut self, key: &[u8]) {
+        self.keys.push(key.to_vec());
+    }
+
+    /// Set the default primitive
+    pub fn set_primitive(&mut self, primitive: Primitive) {
+        self.primitive = primitive.clone();
+        self.algorithm = match self.algorithm {
+            Algorithm::Single(_) => Algorithm::Single(primitive.clone()),
+            Algorithm::Nested { ref outer, .. } => Algorithm::Single(primitive).into_wrapped(outer.clone())
+        };
+    }
+
+    /// Set a keyed function to be applied after hashing.
+    pub fn set_keyed_hash(&mut self, keyed: Primitive) {
+        self.keyed = Some(keyed.clone());
+        self.algorithm = match self.algorithm {
+            Algorithm::Single(_) => self.algorithm.to_wrapped(keyed),
+            Algorithm::Nested { outer: ref _outer, ref inner } => inner.to_wrapped(keyed)
+        };
+    }
+
+
+    /// Serialize the configuration as YAML
+    pub fn to_string(&self) -> String {
+        serde_yaml::to_string(&self).expect("failed to serialize config")
     }
 }
 
@@ -87,7 +266,6 @@ struct BackupPrng {
 }
 
 impl BackupPrng {
-    #[allow(cast_possible_truncation)]
     fn gen_salt(&mut self) -> Vec<u8> {
         let mut output = vec![0_u8; 48];
         hkdf::extract_and_expand(
@@ -106,268 +284,16 @@ pub(crate) fn backup_gen_salt() -> Vec<u8> {
     RAND_BACKUP.lock().expect("could not acquire lock on RAND_BACKUP").gen_salt()
 }
 
-/// Adds the configuration specified in the supplied file to the global
-/// configuration
-pub fn from_file<P: AsRef<Path>>(path: P) {
-    let mut config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
-    config.merge_file(path, true);
-}
-
-/// Set the default hashing primitive to be used
-///
-/// This will only work if no API calls have been previously made
-///
-/// # Panics
-/// This will panic if `set_primitive` is called after hvaing already used
-/// the API, e.g. by calling `hash_password`.
-///
-/// This is to avoid any races between setting config values and using them.
-pub fn set_primitive(primitive: Primitive) {
-    let mut config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
-    config.set_primitive(primitive);
-}
-
-/// Use an _additional_ keyed hash function or encryption scheme.
-///
-/// This will only work if no API calls have been previously made
-///
-/// # Panics
-/// This will panic if `set_primitive` is called after hvaing already used
-/// the API, e.g. by calling `hash_password`.
-pub fn set_keyed_hash(primitive: Primitive) {
-    let mut config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
-    config.set_keyed_hash(primitive);
-}
-
-/// Add a new key into the list of configured keys
-pub fn add_key(key: &[u8]) {
-    let mut global_config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
-    global_config.add_key(key);
-}
-
-/// Print the global configuration as a YAML-formatted string.
-pub fn to_string() -> String {
-    let global_config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
-    global_config.to_string()
-}
-
-impl GlobalDefaults {
-    /// Create a new empty `GlobalDefaults` for setting parameters
-    fn new() -> Self {
-        Self {
-            default: AlgorithmChoice::default(),
-            keyed: None,
-            keys: None,
-            primitive: None,
-            finalised: false,
-        }
-    }
-
-    /// Add a new key into the list of configured keys
-    fn add_key(&mut self, key: &[u8]) {
-        if self.keys.is_none() {
-            self.keys = Some(Vec::new());
-        }
-
-        if let Some(ref mut v) = self.keys {
-            v.push(key.to_vec());
-        }
-    }
-
-    /// Set the default primitive
-    fn set_primitive(&mut self, primitive: Primitive) {
-        if self.finalised {
-            panic!("Attempted to redefine configuration paramater after using config.");
-        }
-        if primitive == primitives::Argon2::default() {
-            self.default = AlgorithmChoice::Argon2i;
-        } else if primitive == primitives::Scrypt::default() {
-            self.default = AlgorithmChoice::Scrypt;
-        } else {
-            self.primitive = Some(primitive);
-            self.default = AlgorithmChoice::Custom;
-        }
-    }
-
-    /// Set a keyed function to be applied after hashing.
-    fn set_keyed_hash(&mut self, keyed: Primitive) {
-        if self.finalised {
-            panic!("Attempted to redefine configuration paramater after using config.");
-        }
-        self.keyed = Some(keyed);
-    }
-
-    fn merge_file<P: AsRef<Path>>(&mut self, path: P, ow: bool) {
-        let file = File::open(path.as_ref());
-        if let Ok(file) = file {
-            let reader = BufReader::new(file);
-            let config = serde_yaml::from_reader(reader).expect("invalid config file");
-            trace!("imported config as: {:?}", config);
-            if ow {
-                self.merge_override(config);
-            } else {
-                self.merge(config);
-            }
-        } else {
-            info!("could not open config file {:?}: {:?}", path.as_ref(), file)
-
-        }
-    }
-
-    fn merge(&mut self, other: Self) {
-        if self.primitive.is_none() {
-            if let Some(prim) = other.primitive {
-                self.set_primitive(prim);
-            }
-        }
-        if self.keyed.is_none() {
-            if let Some(k) = other.keyed {
-                self.set_keyed_hash(k);
-            }
-        }
-    }
-
-    fn merge_override(&mut self, other: Self) {
-        if let Some(prim) = other.primitive {
-            self.set_primitive(prim);
-        }
-        if let Some(k) = other.keyed {
-            self.set_keyed_hash(k);
-        }
-    }
-
-    fn finalize(&mut self) {
-        if self.finalised {
-            panic!("Cannot finalize configuration more than once.");
-        }
-        // Set remaining fields from default.
-        self.merge(Self::default());
-        if let Some(ref keys) = self.keys {
-            for key in keys {
-                key::KEY_STORE.insert(data_encoding::base64::encode_nopad(key.as_ref()),
-                                      key.as_ref());
-            }
-        }
-        self.finalised = true;
-    }
-
-    /// Serialize the configuration as YAML
-    fn to_string(&self) -> String {
-        serde_yaml::to_string(&self).expect("failed to serialize config")
-    }
-}
-
-fn finalize_global_config() {
-    let config: &mut GlobalDefaults = &mut *PASTA_CONFIG.lock()
-        .expect("could not acquire lock on config");
-    let mut path = PathBuf::from(".");
-    if let Ok(new_path) = env::var("LIBPASTA_CFG") {
-        path.push(new_path);
-    }
-    path.push(".libpasta.yaml");
-    config.merge_file(path, false);
-    trace!("Final config output:\n{}", config.to_string());
-    lazy_static::initialize(&RAND_BACKUP);
-    config.finalize();
-}
-
-use std::mem;
-
-lazy_static!{
-    // Global-accessible, mutable configuration value.
-    static ref PASTA_CONFIG: Arc<Mutex<GlobalDefaults>> = {
-        Arc::new(Mutex::new(GlobalDefaults::new()))
-    };
-
-    // Container to hold the custom `Primitive` choice, set via `set_primitive`.
-    static ref CUSTOM_PRIM_IMPL: Arc<Box<PrimitiveImpl + 'static>> = {
-        let mut config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
-
-        if let Some(ref mut prim) = config.primitive {
-            match mem::replace(prim, primitives::Argon2::default()) {
-                Primitive(Sod::Dynamic(p)) => p,
-                Primitive(Sod::Static(_)) => panic!("attempting to set custom primitive to static implementation"),
-            }
-        } else {
-            Arc::new(Box::new(primitives::Poisoned))
-        }
-    };
-
-    static ref CUSTOM_KEYED_IMPL: Option<Arc<Box<PrimitiveImpl + 'static>>> = {
-        let mut config = PASTA_CONFIG.lock().expect("could not acquire lock on config");
-
-        if let Some(ref mut prim) = config.keyed {
-            use serde_mcf::Hashes::*;
-            match mem::replace(prim, primitives::Argon2::default()) {
-                Primitive(Sod::Dynamic(p)) => {
-                    match p.hash_id() {
-                        Hmac => {
-                            Some(p)
-                        },
-                        _ => panic!("attempting to use non-keyed hash for outer layer keying"),
-                    }
-                },
-                Primitive(Sod::Static(_)) => panic!("attempting to set custom primitive to static implementation"),
-            }
-        } else {
-            None
-        }
-    };
-
-    /// Globally-set default `Primitive`. Guaranteed to be a static reference
-    /// to some `PrimitiveImpl`.
-    /// Note that accessing this variable finalises the configuration state and
-    /// further changes cannot be made.
-    pub static ref DEFAULT_PRIM: Primitive = {
-        finalize_global_config();
-        // Makes sure the CUSTOM_PRIM_IMPL is initialised before acquiring the lock.
-        lazy_static::initialize(&CUSTOM_PRIM_IMPL);
-        match PASTA_CONFIG.lock().expect("could not acquire lock on config").default {
-            AlgorithmChoice::Argon2i => {
-                primitives::Argon2::default()
-            },
-            AlgorithmChoice::Scrypt => {
-                primitives::Scrypt::default()
-            },
-            AlgorithmChoice::Custom => {
-                Primitive(Sod::Static(&***CUSTOM_PRIM_IMPL))
-            }
-        }
-    };
-
-    /// Default algorithm to use for new hash computations.
-    pub static ref DEFAULT_ALG: Algorithm = {
-        if let Some(ref p) = *CUSTOM_KEYED_IMPL {
-            Algorithm::Nested { outer: Primitive(Sod::Dynamic(p.clone())), inner: Box::new(Algorithm::Single(DEFAULT_PRIM.clone())) }
-        } else {
-            Algorithm::Single(DEFAULT_PRIM.clone())
-        }
-    };
-
-    static ref RAND_BACKUP: Arc<Mutex<BackupPrng>> = {
-        let rng = rand::SystemRandom::new();
-        let mut seed = [0_u8; 32];
-        rng.fill(&mut seed).expect("could not generate any randomness");
-        Arc::new(Mutex::new(BackupPrng {
-            salt: hmac::SigningKey::generate(&digest::SHA256, &rng).expect("could not generate any randomness"),
-            seed: seed,
-        }))
-    };
-}
-
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use super::super::hash_password;
+    use super::super::*;
 
     #[test]
-    #[should_panic]
-    fn late_config() {
-        let _ = hash_password("hunter2".into());
-        let primitive = primitives::Scrypt::default();
-        set_primitive(primitive);
-        let hash = hash_password("hunter2".into());
-        assert!(hash.starts_with("$$scrypt"));
+    fn use_config() {
+        let config = Config::with_primitive(primitives::Argon2::default());
+        let hash = config.hash_password("hunter2".into());
+        assert!(verify_password(&hash, "hunter2".into()));
     }
 }
