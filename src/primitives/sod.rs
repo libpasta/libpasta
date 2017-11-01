@@ -40,7 +40,7 @@ impl<T: ?Sized> Clone for Sod<T> {
     fn clone(&self) -> Self {
         match *self {
             Sod::Static(t) => Sod::Static(t),
-            Sod::Dynamic(ref t) => Sod::Dynamic(t.clone()),
+            Sod::Dynamic(ref t) => Sod::Dynamic(Arc::clone(t)),
         }
     }
 }

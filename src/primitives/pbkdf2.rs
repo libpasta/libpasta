@@ -27,7 +27,7 @@ mod ring_pbkdf2 {
     impl Pbkdf2 {
         /// Create a new PBKDF2 instance using defaults.
         pub fn default() -> Primitive {
-            Primitive(Sod::Dynamic((*DEFAULT).clone()))
+            Primitive(Sod::Dynamic(Arc::clone(&DEFAULT)))
         }
 
         /// Create  a new PBKDF2 instance.
@@ -118,7 +118,7 @@ mod fastpbkdf2 {
     impl Pbkdf2 {
         /// Create a new PBKDF2 instance using defaults.
         pub fn default() -> Primitive {
-            Primitive(Sod::Dynamic((*DEFAULT).clone()))
+            Primitive(Sod::Dynamic(Arc::clone(&DEFAULT)))
         }
 
         /// Create  a new PBKDF2 instance.

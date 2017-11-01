@@ -69,12 +69,12 @@ mod native {
         }
 
         fn new_impl(cost: u32) -> Self {
-            Self { cost: cost }.into()
+            Self { cost: cost }
         }
 
         /// Get the default `Bcrypt` parameter set.
         pub fn default() -> Primitive {
-            Primitive(Sod::Dynamic((*DEFAULT).clone()))
+            Primitive(Sod::Dynamic(Arc::clone(&DEFAULT)))
         }
     }
 }

@@ -17,7 +17,7 @@
 //!
 //! This is a library designed to make secure password storage easy.
 //!
-//! For a more comprehensive introduction, see: https://libpasta.github.io/
+//! For a more comprehensive introduction, see [the homepage](https://libpasta.github.io/)
 //!
 //!
 //! ## Examples
@@ -52,6 +52,7 @@
     missing_docs_in_private_items, 
     // we use fn new() -> Primitive for convenience
     new_ret_no_self, 
+    range_plus_one, // `..=end` not yet stable
     use_debug,
 )]
 #![deny(
@@ -59,7 +60,6 @@
     dead_code,
     deprecated,
     exceeding_bitshifts,
-    fat_ptr_transmutes,
     improper_ctypes,
     missing_docs,
     mutable_transmutes,

@@ -13,7 +13,7 @@ fn main() {
     config.add_key(key);
     // Construct an HMAC instance and use this as the outer configuration
     let keyed_function = libpasta::primitives::Hmac::with_key(&digest::SHA256, key);
-    config.set_keyed_hash(keyed_function.into());
+    config.set_keyed_hash(keyed_function);
 
     let hash = config.hash_password("hunter2".to_string());
     println!("Computed hash: {:?}", hash);

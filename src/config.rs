@@ -1,14 +1,10 @@
-//! Configuration module
+//! # Configuration
 //!
 //! Included here are methods to setup and configure `libpasta`.
 //! Currently, this refers to the choice of default hashing algorithm.
 //!
 //! Configuration can be specified in two ways: through configuration files,
 //! or programmatically.
-//!
-//! Configuration files are either found in the current path
-//! with the name `.libpasta.yaml`, or an alternative path can be specified
-//! using the environment variable `LIBPASTA_CFG`.
 //!
 //! Alternatively, the `set_primitive` function, and others, can be used
 //! to configure the library. However, note that once the library is "in use",
@@ -82,6 +78,7 @@ pub enum Presets {
 }
 
 /// Holds possible configuration options
+/// See the [module level documentation](index.html) for more information.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     #[serde(skip)]
@@ -106,7 +103,7 @@ impl Default for Config {
 
 
 impl Config {
-    /// Create a new empty `Config` for setting parameters
+    /// Create a new empty `Config` for setting parameters.
     pub fn with_primitive(primitive: Primitive) -> Self {
         Self {
             algorithm: Algorithm::Single(primitive.clone()),
@@ -120,7 +117,7 @@ impl Config {
     /// configuration.
     pub fn from_preset(preset: Presets) -> Self {
         match preset {
-            Presets::Default => Config::default(),
+            Presets::Default => Self::default(),
             Presets::Interactive => unimplemented!(),
             Presets::NonInteractive => unimplemented!(),
             Presets::Paranoid => unimplemented!(),
@@ -134,7 +131,7 @@ impl Config {
         let file = File::open(path.as_ref());
         if let Ok(file) = file {
             let reader = BufReader::new(file);
-            let mut config: Config = serde_yaml::from_reader(reader).expect("invalid config file");
+            let mut config: Self = serde_yaml::from_reader(reader).expect("invalid config file");
             config.algorithm = Algorithm::Single(config.primitive.clone());
             if let Some(kh) = config.keyed.clone() {
                 config.algorithm = config.algorithm.into_wrapped(kh);

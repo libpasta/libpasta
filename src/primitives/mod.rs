@@ -223,7 +223,7 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                     Hashes::Pbkdf2Sha1 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA1),
                     Hashes::Pbkdf2Sha256 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA256),
                     Hashes::Pbkdf2Sha512 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA512),
-                    _ => panic!("impossible due to previous matching"),
+                    _ => Poisoned.into() // not actually be possible due to previous matching,
                 }
             }
             Hashes::Scrypt => {
