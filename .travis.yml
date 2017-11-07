@@ -52,6 +52,6 @@ after_success:
         # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
         # Uncomment the following two lines create and upload a report for codecov.io
-        cargo tarpaulin --out Xml
+        travis_wait 30 cargo tarpaulin --out Xml
         bash <(curl -s https://codecov.io/bash)
       fi

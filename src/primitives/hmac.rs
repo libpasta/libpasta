@@ -54,12 +54,8 @@ mod hmac_ring {
         /// Compute the scrypt hash
         fn compute(&self, password: &[u8], _salt: &[u8]) -> Vec<u8> {
             let mut hash = vec![0_u8; 32];
-            // if let Some(ref key) = 
             let key = self.key.as_ref().expect("key not found");
-            // {
             hkdf::extract_and_expand(key, password, b"libpasta password hashing", &mut hash);
-            println!("HASH: {:?}", hash);
-            // }
             hash
         }
 
@@ -128,8 +124,8 @@ mod test {
             outer: super::Hmac::default().into(),
             inner: Box::new(Algorithm::Single(::primitives::Scrypt::default())),
         };
-        let hash = algorithm.hash(password.to_string().into());
-        assert!(hash.verify(password.to_string().into()));
+        let hash = algorithm.hash(&password.to_string().into());
+        assert!(hash.verify(&password.to_string().into()));
     }
 
 }

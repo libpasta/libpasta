@@ -56,7 +56,7 @@ fn raw_argon2(_b: &mut Bencher) {
 
             let start = time::precise_time_ns();
             for _ in 0..reps {
-                let _ = serde_mcf::to_string(&pastalg.hash("hunter2".to_owned().into()));
+                let _ = serde_mcf::to_string(&pastalg.hash(&"hunter2".to_owned().into()));
             }
             let end = time::precise_time_ns();
             let libp = (end - start) as f64;
@@ -88,8 +88,7 @@ fn pasta_hash_dyn(b: &mut Bencher) {
     let password = "hunter2";
     let alg = Algorithm::Single(Scrypt::new(14, 8, 1));
     b.iter(|| {
-        // libpasta::hash_password(password.to_owned())
-        alg.hash(password.to_owned().into())
+        alg.hash(&password.to_owned().into())
     })
 }
 

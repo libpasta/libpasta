@@ -2,11 +2,18 @@
 name = "libpasta"
 version = "0.0.2"
 authors = ["Sam Scott <me@samjs.co.uk>"]
+categories = ["passwords", "hashing", "password storage"]
+description = "All-inclusive password hashing library"
+documentation = "https://docs.rs/libpasta"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/libpasta/libpasta"
 
 [dependencies]
 argon2rs = { version = "0.2" }
 cargon = "*"
 clap = "2.23"
+clear_on_drop = "0.2.2"
 data-encoding = "1.2"
 error-chain = "0.11.0-rc.2"
 fastpbkdf2 = "*"
@@ -23,7 +30,7 @@ serde = "1.0.2"
 serde_bytes = "0.10"
 serde_derive = "1.0.4"
 serde_json = "1.0.2"
-serde_mcf = { git = "https://github.com/libpasta/serde_mcf" }
+serde_mcf = "0.1.0"
 serde_yaml = "0.7"
 sys-info = "0.4"
 time = "0.1.36"

@@ -119,8 +119,8 @@ impl Config {
 
     /// Generates a `Config` from a selected preset
     /// configuration.
-    pub fn from_preset(preset: Presets) -> Self {
-        match preset {
+    pub fn from_preset(preset: &Presets) -> Self {
+        match *preset {
             Presets::Default => Self::default(),
             Presets::Interactive => unimplemented!(),
             Presets::NonInteractive => unimplemented!(),
@@ -167,7 +167,7 @@ impl Config {
     /// TODO: decide on which API is best to use.
     #[doc(hidden)]
     pub fn hash_password_safe(&self, password: String) -> Result<String> {
-        let pwd_hash = self.algorithm.hash(password.into());
+        let pwd_hash = self.algorithm.hash(&password.into());
         Ok(serde_mcf::to_string(&pwd_hash)?)
     }
 
@@ -184,8 +184,8 @@ impl Config {
     #[doc(hidden)]
     pub fn verify_password_safe(&self, hash: &str, password: String) -> Result<bool> {
         let mut pwd_hash: Output = serde_mcf::from_str(hash)?;
-        pwd_hash.check_keys(&self);
-        Ok(pwd_hash.verify(password.into()))
+        pwd_hash.check_keys(self);
+        Ok(pwd_hash.verify(&password.into()))
     }
 
     /// Verifies a supplied password against a previously computed password hash,
@@ -199,9 +199,9 @@ impl Config {
     #[doc(hidden)]
     pub fn verify_password_update_hash_safe(&self, hash: &mut String, password: String) -> Result<bool> {
         let pwd_hash: Output = serde_mcf::from_str(hash)?;
-        if pwd_hash.verify(password.clone().into()) {
+        if pwd_hash.verify(&password.clone().into()) {
             if pwd_hash.alg != *DEFAULT_ALG {
-                let new_hash = serde_mcf::to_string(&self.algorithm.hash(password.into()))?;
+                let new_hash = serde_mcf::to_string(&self.algorithm.hash(&password.into()))?;
                 *hash = new_hash;
             }
             Ok(true)
@@ -275,7 +275,7 @@ impl Config {
             // Otherwise, replace the outer algorithm with the keyed primitive
             Algorithm::Nested { outer: ref _outer, ref inner } => inner.to_wrapped(keyed)
         };
-        newalg.update_key(&self);
+        newalg.update_key(self);
         self.algorithm = newalg;
     }
 

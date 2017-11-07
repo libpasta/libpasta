@@ -102,6 +102,7 @@
 )]
 #![cfg_attr(all(feature="bench", test), allow(unstable_features))]
 
+extern crate clear_on_drop;
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
@@ -141,6 +142,7 @@ pub mod errors {
 
 use errors::*;
 
+use clear_on_drop::ClearOnDrop;
 use ring::rand::SecureRandom;
 
 #[macro_use]
@@ -158,11 +160,12 @@ pub mod primitives;
 pub mod sod;
 
 /// A simple wrapper for a password to denote it is a cleartext password.
-pub struct Cleartext(Vec<u8>);
+/// Using `ClearOnDrop` attempts to clear the memory on drop.
+pub struct Cleartext(ClearOnDrop<Vec<u8>>);
 
 impl From<String> for Cleartext {
     fn from(thing: String) -> Self {
-        Cleartext(thing.into_bytes())
+        Cleartext(ClearOnDrop::new(thing.into_bytes()))
     }
 }
 
@@ -202,7 +205,7 @@ pub fn verify_password(hash: &str, password: String) -> bool {
 #[doc(hidden)]
 pub fn verify_password_safe(hash: &str, password: String) -> Result<bool> {
     let pwd_hash: Output = serde_mcf::from_str(hash)?;
-    Ok(pwd_hash.verify(password.into()))
+    Ok(pwd_hash.verify(&password.into()))
 }
 
 /// Verifies a supplied password against a previously computed password hash,
@@ -312,11 +315,11 @@ mod api_tests {
             inner: Box::new(Algorithm::default()),
             outer: DEFAULT_PRIM.clone(),
         };
-        let hash = params.hash(password.into());
+        let hash = params.hash(&password.into());
 
         let password = "hunter2".to_owned();
         println!("{:?}", hash);
-        assert!(hash.verify(password.into()));
+        assert!(hash.verify(&password.into()));
 
         let password = "hunter2".to_owned();
         let hash = serde_mcf::to_string(&hash).unwrap();
@@ -334,10 +337,10 @@ mod api_tests {
             inner: Box::new(Algorithm::default()),
             outer: DEFAULT_PRIM.clone(),
         };
-        let hash = params.hash(password.into());
+        let hash = params.hash(&password.into());
 
         let password = "hunter2".to_owned();
-        assert!(hash.verify(password.into()));
+        assert!(hash.verify(&password.into()));
 
         let password = "hunter2".to_owned();
         let hash = serde_mcf::to_string(&hash).unwrap();
@@ -349,7 +352,7 @@ mod api_tests {
         let password = "hunter2".to_owned();
 
         let params = Algorithm::Single(Bcrypt::default());
-        let mut hash = serde_mcf::to_string(&params.hash(password.into())).unwrap();
+        let mut hash = serde_mcf::to_string(&params.hash(&password.into())).unwrap();
         println!("Original: {:?}", hash);
         migrate_hash(&mut hash);
         println!("Migrated: {:?}", hash);
@@ -365,7 +368,7 @@ mod api_tests {
         let password = "hunter2".to_owned();
         let mut pwd_hash: Output = serde_mcf::from_str(&hash).unwrap();
         pwd_hash.alg = Algorithm::default();
-        assert!(pwd_hash.verify(password.into()));
+        assert!(pwd_hash.verify(&password.into()));
     }
 
     #[test]
@@ -411,7 +414,7 @@ mod api_tests {
         let password = "hunter2".to_owned();
 
         let alg = Algorithm::Single(Bcrypt::default()).into_wrapped(Hmac::default().into());
-        let hash = serde_mcf::to_string(&alg.hash(password.clone().into())).unwrap();
+        let hash = serde_mcf::to_string(&alg.hash(&password.clone().into())).unwrap();
         assert!(verify_password(&hash, password));
     }
 

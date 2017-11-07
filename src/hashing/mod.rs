@@ -51,7 +51,7 @@ impl Default for Algorithm {
 
 impl Output {
     /// Verifies that the supplied password matches the hashed value.
-    pub fn verify(&self, password: Cleartext) -> bool {
+    pub fn verify(&self, password: &Cleartext) -> bool {
         self.alg.verify(&password.0, &self.salt, &self.hash)
     }
 
@@ -62,7 +62,7 @@ impl Output {
 
 impl Algorithm {
     /// Type-safe function to compute the hash of a password.
-    pub fn hash(&self, password: Cleartext) -> Output {
+    pub fn hash(&self, password: &Cleartext) -> Output {
         let salt = super::gen_salt(&**config::RANDOMNESS_SOURCE);
         let output = self.hash_with_salt(&password.0, &salt);
         Output {
@@ -148,7 +148,7 @@ mod test {
     #[test]
     fn test_hash() {
         let alg = Algorithm::default();
-        let output = alg.hash("hunter2".to_string().into());
+        let output = alg.hash(&"hunter2".to_string().into());
         println!("{:?}", serde_mcf::to_string(&output).unwrap());
     }
 
