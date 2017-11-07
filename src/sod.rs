@@ -11,10 +11,10 @@
 /// Many thanks to [panicbit](https://github.com/panicbit) for helping to
 /// get the `Deref` implementation working to make all the magic happen.
 
-use std::sync::Arc;
 use std::ops::Deref;
+use std::sync::Arc;
 
-#[derive(PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd)]
 /// Enum to hold either static references or reference-counted owned objects.
 /// Implements `Deref` to `T` for ease of use.
 /// Since internal data is either a static reference, or an `Arc`, cloning

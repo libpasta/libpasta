@@ -6,7 +6,7 @@ mod native {
     #![allow(cast_possible_truncation)]
 
     use primitives::Primitive;
-    use primitives::sod::Sod;
+    use sod::Sod;
 
     use ring_pwhash::scrypt;
     use serde_mcf::Hashes;

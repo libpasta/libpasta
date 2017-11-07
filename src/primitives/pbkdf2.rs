@@ -5,7 +5,7 @@ pub use self::ring_pbkdf2::Pbkdf2 as RingPbkdf2;
 /// Native Rust implementation of scrypt.
 mod ring_pbkdf2 {
     use primitives::{Primitive, PrimitiveImpl};
-    use primitives::sod::Sod;
+    use sod::Sod;
 
     use ring::{digest, pbkdf2};
     use serde_mcf::Hashes;
@@ -90,7 +90,7 @@ mod fastpbkdf2 {
     use self::fastpbkdf2::*;
 
     use primitives::{Primitive, PrimitiveImpl};
-    use primitives::sod::Sod;
+    use sod::Sod;
 
     use ring::digest;
     use serde_mcf::Hashes;

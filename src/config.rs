@@ -19,9 +19,11 @@ use ring::rand::SecureRandom;
 use serde_mcf;
 use serde_yaml;
 
+use key;
 use errors::*;
 use hashing::{Algorithm, Output};
-use primitives::{self, Primitive, Sod};
+use primitives::{self, Primitive};
+use sod::Sod;
 
 use std::default::Default;
 use std::fs::File;
@@ -86,9 +88,11 @@ pub struct Config {
     #[serde(default = "primitives::Scrypt::default")]
     primitive: Primitive,
     keyed: Option<Primitive>,
-    #[serde(default)]
-    keys: Vec<Vec<u8>>,
+    #[serde(skip, default = "key::get_global")]
+    keys: &'static key::Store,
 }
+
+
 
 impl Default for Config {
     fn default() -> Self {
@@ -96,7 +100,7 @@ impl Default for Config {
             algorithm: DEFAULT_ALG.clone(),
             primitive: DEFAULT_PRIM.clone(),
             keyed: None,
-            keys: Vec::new(),
+            keys: key::get_global(),
         }
     }
 }
@@ -109,7 +113,7 @@ impl Config {
             algorithm: Algorithm::Single(primitive.clone()),
             primitive: primitive,
             keyed: None,
-            keys: Vec::new(),
+            keys: key::get_global(),
         }
     }
 
@@ -165,6 +169,23 @@ impl Config {
     pub fn hash_password_safe(&self, password: String) -> Result<String> {
         let pwd_hash = self.algorithm.hash(password.into());
         Ok(serde_mcf::to_string(&pwd_hash)?)
+    }
+
+    /// Verifies the provided password matches the inputted hash string.
+    ///
+    /// If there is any error in processing the hash or password, this
+    /// will simply return `false`.
+    pub fn verify_password(&self, hash: &str, password: String) -> bool {
+        self.verify_password_safe(hash, password).unwrap_or(false)
+    }
+
+    /// Same as `verify_password` but returns `Result` to allow error handling.
+    /// TODO: decide on which API is best to use.
+    #[doc(hidden)]
+    pub fn verify_password_safe(&self, hash: &str, password: String) -> Result<bool> {
+        let mut pwd_hash: Output = serde_mcf::from_str(hash)?;
+        pwd_hash.check_keys(&self);
+        Ok(pwd_hash.verify(password.into()))
     }
 
     /// Verifies a supplied password against a previously computed password hash,
@@ -228,8 +249,12 @@ impl Config {
 
 
     /// Add a new key into the list of configured keys
-    pub fn add_key(&mut self, key: &[u8]) {
-        self.keys.push(key.to_vec());
+    pub fn add_key(&self, key: &[u8]) -> String {
+        self.keys.insert(key)
+    }
+
+    pub(crate) fn get_key(&self, key_id: &str) -> Option<Vec<u8>> {
+        self.keys.get_key(key_id)
     }
 
     /// Set the default primitive
@@ -244,10 +269,19 @@ impl Config {
     /// Set a keyed function to be applied after hashing.
     pub fn set_keyed_hash(&mut self, keyed: Primitive) {
         self.keyed = Some(keyed.clone());
-        self.algorithm = match self.algorithm {
+        let mut newalg = match self.algorithm {
+            // If just a single algorithm, wrap with the keyed primitive
             Algorithm::Single(_) => self.algorithm.to_wrapped(keyed),
+            // Otherwise, replace the outer algorithm with the keyed primitive
             Algorithm::Nested { outer: ref _outer, ref inner } => inner.to_wrapped(keyed)
         };
+        newalg.update_key(&self);
+        self.algorithm = newalg;
+    }
+
+    /// Sets the location of keys for keyed functions.
+    pub fn set_key_source(&mut self, store: &'static key::Store) {
+        self.keys = store;
     }
 
 
@@ -287,10 +321,40 @@ mod test {
     use super::*;
     use super::super::*;
 
+    use ring;
     #[test]
     fn use_config() {
         let config = Config::with_primitive(primitives::Argon2::default());
         let hash = config.hash_password("hunter2".into());
         assert!(verify_password(&hash, "hunter2".into()));
+    }
+
+    #[derive(Debug)]
+    struct StaticSource(&'static [u8; 16]);
+
+    impl key::Store for StaticSource {
+        /// Insert a new key into the `Store`.
+        fn insert(&self, _key: &[u8]) -> String {
+            "StaticKey".to_string()
+        }
+
+        /// Get a key from the `Store`.
+        fn get_key(&self, _id: &str) -> Option<Vec<u8>> {
+            Some(self.0.to_vec())
+        }
+    }
+    lazy_static!{
+        static ref STATIC_SOURCE: StaticSource = StaticSource(b"ThisIsAStaticKey");
+    }
+
+    #[test]
+    fn alternate_key_source() {
+        let mut config = Config::default();
+        config.set_key_source(&*STATIC_SOURCE);
+        assert_eq!(config.get_key("dummy"), Some(b"ThisIsAStaticKey".to_vec()));
+        let hmac = primitives::Hmac::with_key_id(&ring::digest::SHA256, "dummy");
+        config.set_keyed_hash(hmac);
+        let hash = config.hash_password("hunter2".into());
+        assert!(config.verify_password_safe(&hash, "hunter2".to_string()).unwrap())
     }
 }

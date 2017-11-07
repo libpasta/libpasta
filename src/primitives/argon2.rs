@@ -4,7 +4,7 @@ mod native {
     extern crate argon2rs;
 
     use primitives::Primitive;
-    use primitives::sod::Sod;
+    use sod::Sod;
 
     use serde_mcf::Hashes;
 

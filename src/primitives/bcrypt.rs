@@ -7,7 +7,7 @@ mod native {
     use self::crypto::bcrypt::bcrypt;
 
     use primitives::{Primitive, PrimitiveImpl};
-    use primitives::sod::Sod;
+    use sod::Sod;
 
     use serde_mcf::Hashes;
 

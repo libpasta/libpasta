@@ -6,7 +6,6 @@
 //! recursive structure, containing either a single `Primitive`, or a
 //! `Primitive` and a further layer of `Algorithm`. This is the hashing onion.
 
-// use std::cmp::PartialOrd;
 use std::default::Default;
 
 use config;
@@ -54,6 +53,10 @@ impl Output {
     /// Verifies that the supplied password matches the hashed value.
     pub fn verify(&self, password: Cleartext) -> bool {
         self.alg.verify(&password.0, &self.salt, &self.hash)
+    }
+
+    pub(crate) fn check_keys(&mut self, config: &config::Config) {
+        self.alg.update_key(config);
     }
 }
 
@@ -115,6 +118,24 @@ impl Algorithm {
         Algorithm::Nested {
             outer: outer,
             inner: Box::new(self),
+        }
+    }
+
+    pub(crate) fn update_key(&mut self, config: &config::Config) {
+        match *self {
+            Algorithm::Single(ref mut p) =>  {
+                if let Some(newp) = p.update_key(config) {
+                    *p = newp;
+                }
+            },
+            Algorithm::Nested { ref mut inner, ref mut outer } => {
+                inner.update_key(config);
+                // outer.update_key(config).and_then(|new_outer| *outer = new_outer);
+                if let Some(newp) = outer.update_key(config) {
+                    *outer = newp;
+                }
+
+            }
         }
     }
 }

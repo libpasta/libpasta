@@ -154,6 +154,8 @@ use hashing::Output;
 
 pub mod primitives;
 
+/// Module to define the Static or Dynamic `Sod` enum.
+pub mod sod;
 
 /// A simple wrapper for a password to denote it is a cleartext password.
 pub struct Cleartext(Vec<u8>);
@@ -261,6 +263,7 @@ mod api_tests {
     use config::DEFAULT_PRIM;
     use hashing::{Algorithm, Output};
     use primitives::{Bcrypt, Hmac};
+    use sod::Sod;
 
     #[test]
     fn sanity_check() {
@@ -425,7 +428,6 @@ mod api_tests {
 
     #[test]
     fn no_randomness_ok() {
-        use primitives::Sod;
         use std::mem;
 
         // Using a broken PRNG still results in distinct salts

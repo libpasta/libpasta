@@ -1,10 +1,11 @@
 pub use self::hmac_ring::Hmac;
 
 mod hmac_ring {
+    use config;
+    use key;
     use key::Store;
     use primitives::Primitive;
 
-    use data_encoding::base64;
     use ring::{digest, hkdf, hmac, rand};
     use serde_mcf::Hashes;
 
@@ -15,20 +16,19 @@ mod hmac_ring {
     /// This struct holds the parameters used.
     /// Represents the `ring` implementation.
     pub struct Hmac {
-        key: hmac::SigningKey,
-        key_id: [u8; 32],
+        h: &'static digest::Algorithm,
+        key: Option<hmac::SigningKey>,
+        key_id: String,
     }
 
     impl Hmac {
-        /// Construct a new `Hmac` instance with a specified key
-        pub fn with_key(h: &'static digest::Algorithm, key: &[u8]) -> Primitive {
-            let mut key_id = [0_u8; 32];
-            key_id.copy_from_slice(digest::digest(&digest::SHA512_256, key).as_ref());
+        /// Construct a new `Hmac` instance with a specified key identifier
+        pub fn with_key_id(h: &'static digest::Algorithm, key_id: &str) -> Primitive {
             Self {
-                    key: hmac::SigningKey::new(h, key),
-                    key_id: key_id,
-                }
-                .into()
+                h: h,
+                key: key::get_global().get_key(key_id).map(|k| hmac::SigningKey::new(h, &k)),
+                key_id: key_id.to_string(),
+            }.into()
         }
 
         /// Gets a default HMAC instance, generating a fresh new key.
@@ -38,20 +38,15 @@ mod hmac_ring {
 
         fn new() -> Self {
             let rng = rand::SystemRandom::new();
-            let mut key_id = [0_u8; 32];
-            let key = hmac::SigningKey::generate_serializable(&digest::SHA256, &rng, &mut key_id)
+            let mut key_bytes = [0_u8; 32];
+            let key = hmac::SigningKey::generate_serializable(&digest::SHA256, &rng, &mut key_bytes)
                 .expect("could not generate random bytes for key");
-            let digest = digest::digest(&digest::SHA512_256, &key_id);
-            ::key::KEY_STORE.insert(base64::encode_nopad(digest.as_ref()), &key_id[..]);
-            key_id.copy_from_slice(digest.as_ref());
+            let key_id = key::get_global().insert(&key_bytes);
             Self {
-                key: key,
+                h: &digest::SHA256,
+                key: Some(key),
                 key_id: key_id,
             }
-        }
-
-        fn key_id(&self) -> String {
-            base64::encode_nopad(&self.key_id)
         }
     }
 
@@ -59,28 +54,41 @@ mod hmac_ring {
         /// Compute the scrypt hash
         fn compute(&self, password: &[u8], _salt: &[u8]) -> Vec<u8> {
             let mut hash = vec![0_u8; 32];
-            hkdf::extract_and_expand(&self.key, password, b"libpasta password hashing", &mut hash);
+            // if let Some(ref key) = 
+            let key = self.key.as_ref().expect("key not found");
+            // {
+            hkdf::extract_and_expand(key, password, b"libpasta password hashing", &mut hash);
+            println!("HASH: {:?}", hash);
+            // }
             hash
         }
 
         /// Convert parameters into a vector of (key, value) tuples
         /// for serializing.
         fn params_as_vec(&self) -> Vec<(&'static str, String)> {
-            vec![("key_id", self.key_id()),
-                 ("h", super::super::hash_to_id(self.key.digest_algorithm()))]
+            vec![("key_id", self.key_id.clone()),
+                 ("h", super::super::hash_to_id(self.h))]
         }
 
         fn hash_id(&self) -> Hashes {
             Hashes::Hmac
         }
+
+        fn update_key(&self, config: &config::Config) -> Option<Primitive> {
+            Some(Self {
+                h: self.h,
+                key: config.get_key(&self.key_id).map(|k| hmac::SigningKey::new(self.h, &k)),
+                key_id: self.key_id.clone(),
+            }.into())
+        }
     }
 
     impl fmt::Debug for Hmac {
-        fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f,
                    "Hmac, KeyID: {}, Hash: {}",
-                   self.key_id(),
-                   super::super::hash_to_id(self.key.digest_algorithm()))
+                   self.key_id,
+                   super::super::hash_to_id(self.h))
         }
     }
 }

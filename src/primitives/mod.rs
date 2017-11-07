@@ -47,11 +47,10 @@ pub use self::pbkdf2::{Pbkdf2, RingPbkdf2};
 mod scrypt;
 pub use self::scrypt::Scrypt;
 
-/// Module to define the Static or Dynamic `Sod` enum.
-mod sod;
-pub use self::sod::Sod;
 
-use key::Store;
+use sod::Sod;
+
+use config;
 
 use itertools::Itertools;
 use itertools::FoldWhile::{Continue, Done};
@@ -103,6 +102,12 @@ pub trait PrimitiveImpl: fmt::Debug + Send + Sync {
 
     /// Return algorithm type as a MCF-compatible hash identifier.
     fn hash_id(&self) -> Hashes;
+
+    /// Use the supplied `Config` to update the current `Primitive` with
+    /// a new key source.
+    fn update_key(&self, _config: &config::Config) -> Option<Primitive> {
+        None
+    }
 }
 
 impl<P: PrimitiveImpl + 'static> From<P> for Primitive {
@@ -212,8 +217,7 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
             Hashes::Hmac => {
                 let hash_id = try_or_poisoned!(other.1.get("h").and_then(Value::as_str));
                 let key_id = try_or_poisoned!(other.1.get("key_id").and_then(Value::as_str));
-                let key = try_or_poisoned!(::key::KEY_STORE.get_key(key_id));
-                Hmac::with_key(hash_from_id(hash_id), &key)
+                Hmac::with_key_id(hash_from_id(hash_id), key_id)
             }
             ref x @ Hashes::Pbkdf2Sha1 |
             ref x @ Hashes::Pbkdf2Sha256 |

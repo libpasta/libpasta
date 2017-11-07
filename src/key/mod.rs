@@ -3,25 +3,35 @@
 //! The idea is that a running application can dynamically insert keys into
 //! the key store, which are used for producing and verifying hashes.
 #![allow(dead_code)]
+
+use data_encoding::base64;
+use ring::digest;
+
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::RwLock;
 
 lazy_static!{
-    /// Global key storage
-    pub static ref KEY_STORE: LocalStore = LocalStore::new();
+    static ref LOCAL_STORE: LocalStore = LocalStore::new();
+}
+
+pub(crate) fn get_global() -> &'static LocalStore {
+    &*LOCAL_STORE
 }
 
 /// Structure used as a global store for keys.
+#[derive(Debug)]
 pub struct LocalStore {
     store: RwLock<HashMap<String, Vec<u8>>>,
 }
 
+
 /// A key storage source. Permits retrieving and storing keys.
 ///
 /// Keys are indexed by a `String` id, and are stored as Vec<u8>.
-pub trait Store {
+pub trait Store: fmt::Debug + Send + Sync {
     /// Insert a new key into the `Store`.
-    fn insert(&self, key_id: String, key: &[u8]);
+    fn insert(&self, key: &[u8]) -> String;
 
     /// Get a key from the `Store`.
     fn get_key(&self, id: &str) -> Option<Vec<u8>>;
@@ -35,11 +45,14 @@ impl LocalStore {
 
 impl Store for LocalStore {
     /// Insert a new key into the `KeyStore`.
-    fn insert(&self, key_id: String, key: &[u8]) {
+    fn insert(&self, key: &[u8]) -> String {
+        let digest = digest::digest(&digest::SHA512_256, key);
+        let key_id = base64::encode_nopad(digest.as_ref());
         let _ = self.store
             .write()
             .expect("could not get write on key store")
-            .insert(key_id, key.to_vec());
+            .insert(key_id.clone(), key.to_vec());
+        key_id
     }
 
     /// Get a key from the `KeyStore`.

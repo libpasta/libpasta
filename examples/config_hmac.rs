@@ -10,9 +10,9 @@ fn main() {
 
     // Some proper way of getting a key
     let key = b"yellow submarine";
-    config.add_key(key);
+    let key_id = config.add_key(key);
     // Construct an HMAC instance and use this as the outer configuration
-    let keyed_function = libpasta::primitives::Hmac::with_key(&digest::SHA256, key);
+    let keyed_function = libpasta::primitives::Hmac::with_key_id(&digest::SHA256, &key_id);
     config.set_keyed_hash(keyed_function);
 
     let hash = config.hash_password("hunter2".to_string());
