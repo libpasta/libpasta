@@ -343,14 +343,12 @@ mod test {
             Some(self.0.to_vec())
         }
     }
-    lazy_static!{
-        static ref STATIC_SOURCE: StaticSource = StaticSource(b"ThisIsAStaticKey");
-    }
+    static STATIC_SOURCE: StaticSource = StaticSource(b"ThisIsAStaticKey");
 
     #[test]
     fn alternate_key_source() {
         let mut config = Config::default();
-        config.set_key_source(&*STATIC_SOURCE);
+        config.set_key_source(&STATIC_SOURCE);
         assert_eq!(config.get_key("dummy"), Some(b"ThisIsAStaticKey".to_vec()));
         let hmac = primitives::Hmac::with_key_id(&ring::digest::SHA256, "dummy");
         config.set_keyed_hash(hmac);
