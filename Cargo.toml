@@ -2,7 +2,7 @@
 name = "libpasta"
 version = "0.0.2"
 authors = ["Sam Scott <me@samjs.co.uk>"]
-categories = ["passwords", "hashing", "password storage"]
+categories = ["authentication", "cryptography"]
 description = "All-inclusive password hashing library"
 documentation = "https://docs.rs/libpasta"
 license = "MIT"
