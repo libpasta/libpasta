@@ -4,7 +4,7 @@
 //! the key store, which are used for producing and verifying hashes.
 #![allow(dead_code)]
 
-use data_encoding::base64;
+use data_encoding::BASE64_NOPAD;
 use ring::digest;
 
 use std::collections::HashMap;
@@ -47,7 +47,7 @@ impl Store for LocalStore {
     /// Insert a new key into the `KeyStore`.
     fn insert(&self, key: &[u8]) -> String {
         let digest = digest::digest(&digest::SHA512_256, key);
-        let key_id = base64::encode_nopad(digest.as_ref());
+        let key_id = BASE64_NOPAD.encode(digest.as_ref());
         let _ = self.store
             .write()
             .expect("could not get write on key store")
