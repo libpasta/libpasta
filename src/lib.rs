@@ -133,9 +133,8 @@ pub mod errors {
     // Create the Error, ErrorKind, ResultExt, and Result types
     error_chain!{
         foreign_links {
-            Deserialize(serde_mcf::de::Error) #[doc = "Errors from deserializing MCF password hashes."] ;
+            Deserialize(serde_mcf::errors::Error) #[doc = "Errors from de/serializing MCF password hashes."] ;
             Ring(ring::error::Unspecified) #[doc = "Errors originiating from `ring`"] ;
-            Serialize(serde_mcf::ser::Error) #[doc = "Errors from serializing to a MCF password hash."] ;
         }
     }
 }

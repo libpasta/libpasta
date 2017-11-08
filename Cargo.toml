@@ -1,6 +1,6 @@
 [package]
 name = "libpasta"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Sam Scott <me@samjs.co.uk>"]
 categories = ["authentication", "cryptography"]
 description = "All-inclusive password hashing library"
@@ -30,7 +30,7 @@ serde = "1.0.2"
 serde_bytes = "0.10"
 serde_derive = "1.0.4"
 serde_json = "1.0.2"
-serde_mcf = "0.1.1"
+serde_mcf = "0.1.2"
 serde_yaml = "0.7"
 sys-info = "0.5"
 time = "0.1.36"

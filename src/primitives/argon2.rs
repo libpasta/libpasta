@@ -73,8 +73,7 @@ benches!(Argon2);
 
 #[cfg(test)]
 mod test {
-    extern crate data_encoding;
-    use self::data_encoding::base16;
+    use data_encoding::HEXLOWER;
     use serde_mcf;
     use super::*;
     use hashing::*;
@@ -105,7 +104,7 @@ mod test {
                 encoded: &str) {
         let alg = Argon2::new(passes, lanes, 1 << m);
         let hash = alg.compute(password.as_bytes(), salt.as_bytes());
-        assert_eq!(base16::encode(&hash).to_lowercase(), hexpected);
+        assert_eq!(HEXLOWER.encode(&hash), hexpected);
         assert_eq!(serde_mcf::from_str::<Output>(encoded).unwrap().hash, hash);
         let output = Output {
             alg: Algorithm::Single(alg.into()),

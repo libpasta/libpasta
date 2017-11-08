@@ -105,9 +105,9 @@ mod test {
     fn scrypt_test(password: &str, salt: &str, n: u32, r: u32, p: u32, _output_len: u32, expected: &str) {
         let scrypt = super::Scrypt::new(f32::log2(n as f32) as u8, r, p);
         let hash = scrypt.compute(password.as_bytes(), salt.as_bytes());
-        let expected = expected.replace(" ", "").to_uppercase();
+        let expected = expected.replace(" ", "");
         println!("{}", expected);
-        let expected = data_encoding::base16::decode(expected.as_bytes()).unwrap();
+        let expected = data_encoding::HEXLOWER.decode(expected.as_bytes()).unwrap();
         assert_eq!(&expected[..32], &hash[..]);
     }
 
