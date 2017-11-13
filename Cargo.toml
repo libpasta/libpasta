@@ -12,7 +12,6 @@ repository = "https://github.com/libpasta/libpasta"
 [dependencies]
 argon2rs = "0.2"
 cargon = "0.0.1"
-clap = "2.23"
 clear_on_drop = "0.2.2"
 data-encoding = "2.0.0"
 error-chain = "0.11.0"
@@ -20,20 +19,14 @@ fastpbkdf2 = "0.1"
 itertools = "0.7"
 lazy_static = "0.2"
 log = "0.3"
-optimization = "0.1"
 num-traits = "0.1"
-regex = "0.2"
 ring-pwhash = "0.12"
 rpassword = "2.0"
 rust-crypto = "0.2"
 serde = "1.0.2"
-serde_bytes = "0.10"
 serde_derive = "1.0.4"
-serde_json = "1.0.2"
 serde_mcf = "0.1.2"
 serde_yaml = "0.7"
-sys-info = "0.5"
-time = "0.1.36"
 
 [dependencies.ring]
 version = "0.12"
@@ -42,6 +35,7 @@ features = ["use_heap"]
 
 [dev-dependencies]
 env_logger = "0.4"
+time = "0.1.36"
 
 [features]
 bench = []
