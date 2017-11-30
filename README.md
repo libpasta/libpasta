@@ -33,7 +33,7 @@ Therefore, we take great care to make this all opaque to the user:
     }
 ```
 
-### The rest of this README is dedicated to developing the code. For more about the library, and examples, please see: https://libpasta.github.io/ or the [documentation](https://libpasta.github.io/doc/libpasta).
+### The rest of this README is dedicated to developing the code. For more about the library, and examples, please see: https://libpasta.github.io/ or the [documentation](https://docs.rs/libpasta/).
 
 ## Roadmap
 
