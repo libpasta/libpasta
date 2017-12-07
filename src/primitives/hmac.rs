@@ -125,8 +125,8 @@ mod test {
             outer: super::Hmac::default().into(),
             inner: Box::new(Algorithm::Single(::primitives::Scrypt::default())),
         };
-        let hash = algorithm.hash(&password.to_string().into());
-        assert!(hash.verify(&password.to_string().into()));
+        let hash = algorithm.hash(&password);
+        assert!(hash.verify(&password));
     }
 
 }

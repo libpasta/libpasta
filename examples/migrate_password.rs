@@ -17,7 +17,7 @@ fn migrate_users(users: &mut [User]) {
 fn auth_user(user: &mut User) {
     // Step 2: Update algorithm during log in
     let password = prompt_password_stdout("Enter password:").unwrap();
-    if libpasta::verify_password_update_hash(&mut user.password_hash, password) {
+    if libpasta::verify_password_update_hash(&mut user.password_hash, &password) {
         println!("Password correct, new hash: \n{}", user.password_hash);
     } else {
         println!("Password incorrect, hash unchanged: \n{}",
@@ -43,5 +43,5 @@ extern crate serde_mcf;
 
 fn deprected_hash(password: &str) -> String {
     let alg = hashing::Algorithm::Single(primitives::Bcrypt::default());
-    serde_mcf::to_string(&alg.hash(&password.to_owned().into())).unwrap()
+    serde_mcf::to_string(&alg.hash(password)).unwrap()
 }

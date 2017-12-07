@@ -243,7 +243,7 @@ impl<'de> Deserialize<'de> for Primitive {
         let prim = (&prim.id, &prim.params).into();
         if prim == ::primitives::Poisoned.into() {
             #[allow(use_debug)]
-            return Err(D::Error::custom(format!("failed to deserialize")));
+            return Err(D::Error::custom("failed to deserialize"));
         }
         Ok(prim)
     }

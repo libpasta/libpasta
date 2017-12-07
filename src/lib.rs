@@ -33,7 +33,7 @@
 //!     # if false {
 //!     let password = prompt_password_stdout("Please enter your password:").unwrap();
 //!     # }
-//!     # let password = "hunter2".to_string();
+//!     # let password = "hunter2";
 //!     let password_hash = libpasta::hash_password(password);
 //!     println!("The stored password is: '{}'", password_hash);
 //! }
@@ -102,7 +102,6 @@
 )]
 #![cfg_attr(all(feature="bench", test), allow(unstable_features))]
 
-extern crate clear_on_drop;
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
@@ -168,8 +167,6 @@ pub mod errors {
 }
 
 use errors::*;
-
-use clear_on_drop::ClearOnDrop;
 use ring::rand::SecureRandom;
 
 #[macro_use]
@@ -186,16 +183,6 @@ pub mod primitives;
 /// Module to define the Static or Dynamic `Sod` enum.
 pub mod sod;
 
-/// A simple wrapper for a password to denote it is a cleartext password.
-/// Using `ClearOnDrop` attempts to clear the memory on drop.
-pub struct Cleartext(ClearOnDrop<Vec<u8>>);
-
-impl From<String> for Cleartext {
-    fn from(thing: String) -> Self {
-        Cleartext(ClearOnDrop::new(thing.into_bytes()))
-    }
-}
-
 /// Generates a default hash for a given password.
 ///
 /// Will automatically generate a random salt. In the extreme case that the
@@ -207,14 +194,14 @@ impl From<String> for Cleartext {
 /// ## Panics
 /// A panic indicates a problem with the serialization mechanisms, and should
 /// be reported.
-pub fn hash_password(password: String) -> String {
+pub fn hash_password(password: &str) -> String {
     config::DEFAULT_CONFIG.hash_password(password)
 }
 
 /// Same as `hash_password` but returns `Result` to allow error handling.
 /// TODO: decide on which API is best to use.
 #[doc(hidden)]
-pub fn hash_password_safe(password: String) -> Result<String> {
+pub fn hash_password_safe(password: &str) -> Result<String> {
     config::DEFAULT_CONFIG.hash_password_safe(password)
 
 }
@@ -223,28 +210,28 @@ pub fn hash_password_safe(password: String) -> Result<String> {
 ///
 /// If there is any error in processing the hash or password, this
 /// will simply return `false`.
-pub fn verify_password(hash: &str, password: String) -> bool {
+pub fn verify_password(hash: &str, password: &str) -> bool {
     verify_password_safe(hash, password).unwrap_or(false)
 }
 
 /// Same as `verify_password` but returns `Result` to allow error handling.
 /// TODO: decide on which API is best to use.
 #[doc(hidden)]
-pub fn verify_password_safe(hash: &str, password: String) -> Result<bool> {
+pub fn verify_password_safe(hash: &str, password: &str) -> Result<bool> {
     let pwd_hash: Output = serde_mcf::from_str(hash)?;
-    Ok(pwd_hash.verify(&password.into()))
+    Ok(pwd_hash.verify(password))
 }
 
 /// Verifies a supplied password against a previously computed password hash,
 /// and performs an in-place update of the hash value if the password verifies.
 /// Hence this needs to take a mutable `String` reference.
-pub fn verify_password_update_hash(hash: &mut String, password: String) -> bool {
+pub fn verify_password_update_hash(hash: &mut String, password: &str) -> bool {
     config::DEFAULT_CONFIG.verify_password_update_hash(hash, password)
 }
 
 /// Same as `verify_password_update_hash`, but returns `Result` to allow error handling.
 #[doc(hidden)]
-pub fn verify_password_update_hash_safe(hash: &mut String, password: String) -> Result<bool> {
+pub fn verify_password_update_hash_safe(hash: &mut String, password: &str) -> Result<bool> {
     config::DEFAULT_CONFIG.verify_password_update_hash_safe(hash, password)
 
 }
@@ -297,27 +284,27 @@ mod api_tests {
 
     #[test]
     fn sanity_check() {
-        let password = "".to_owned();
+        let password = "";
         let hash = hash_password(password);
         println!("Hash: {:?}", hash);
 
         // can't use password again
-        let password = "".to_owned();
+        let password = "";
         assert!(verify_password(&hash, password));
-        assert!(!verify_password(&hash, "wrong password".to_owned()));
+        assert!(!verify_password(&hash, "wrong password"));
 
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         let hash = hash_password(password);
 
         // can't use password again
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         assert!(verify_password(&hash, password));
-        assert!(!verify_password(&hash, "wrong password".to_owned()));
+        assert!(!verify_password(&hash, "wrong password"));
     }
 
     #[test]
     fn external_check() {
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         let hash = "$2a$10$u.Fhlm/a1DpHr/z5KrsLG.iZ7iM9r8DInJvZ57VArRKuhlHAoVZOi";
         let pwd_hash: Output = serde_mcf::from_str(hash).unwrap();
         println!("{:?}", pwd_hash);
@@ -329,26 +316,26 @@ mod api_tests {
 
     #[test]
     fn emoji_password() {
-        let password = "emojisaregreat💖💖💖".to_owned();
-        let hash = hash_password(password.clone().into());
-        assert!(verify_password(&hash, password.into()));
+        let password = "emojisaregreat💖💖💖";
+        let hash = hash_password(password);
+        assert!(verify_password(&hash, password));
     }
 
     #[test]
     fn nested_hash() {
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
 
         let params = Algorithm::Nested {
             inner: Box::new(Algorithm::default()),
             outer: DEFAULT_PRIM.clone(),
         };
-        let hash = params.hash(&password.into());
+        let hash = params.hash(&password);
 
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         println!("{:?}", hash);
-        assert!(hash.verify(&password.into()));
+        assert!(hash.verify(&password));
 
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         let hash = serde_mcf::to_string(&hash).unwrap();
         println!("{:?}", hash);
         let _hash: Output = serde_mcf::from_str(&hash).unwrap();
@@ -358,76 +345,76 @@ mod api_tests {
 
     #[test]
     fn verify_update() {
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
 
         let params = Algorithm::Nested {
             inner: Box::new(Algorithm::default()),
             outer: DEFAULT_PRIM.clone(),
         };
-        let hash = params.hash(&password.into());
+        let hash = params.hash(&password);
 
-        let password = "hunter2".to_owned();
-        assert!(hash.verify(&password.into()));
+        let password = "hunter2";
+        assert!(hash.verify(&password));
 
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         let hash = serde_mcf::to_string(&hash).unwrap();
         assert!(verify_password(&hash, password));
     }
 
     #[test]
     fn migrate() {
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
 
         let params = Algorithm::Single(Bcrypt::default());
-        let mut hash = serde_mcf::to_string(&params.hash(&password.into())).unwrap();
+        let mut hash = serde_mcf::to_string(&params.hash(&password)).unwrap();
         println!("Original: {:?}", hash);
         migrate_hash(&mut hash);
         println!("Migrated: {:?}", hash);
 
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         assert!(verify_password(&hash, password));
 
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         assert!(verify_password_update_hash(&mut hash, password));
         println!("Updated: {:?}", hash);
 
 
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         let mut pwd_hash: Output = serde_mcf::from_str(&hash).unwrap();
         pwd_hash.alg = Algorithm::default();
-        assert!(pwd_hash.verify(&password.into()));
+        assert!(pwd_hash.verify(&password));
     }
 
     #[test]
     fn handles_broken_hashes() {
         // base hash: $$scrypt$ln=14,r=8,p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
 
         // Missing param
         let hash = "$$scrypt$ln=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
-        assert!(!verify_password(&hash, password.clone()));
+        assert!(!verify_password(&hash, password));
 
         // Incorrect hash-id
         let hash = "$$nocrypt$ln=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
-        assert!(!verify_password(&hash, password.clone()));
+        assert!(!verify_password(&hash, password));
 
         // Missing salt
         let hash = "$$scrypt$ln=14p=1$$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
-        assert!(!verify_password(&hash, password.clone()));
+        assert!(!verify_password(&hash, password));
 
         // Incorrect number of fields
         let hash = "$$scrypt$ln=14p=1$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
-        assert!(!verify_password(&hash, password.clone()));
+        assert!(!verify_password(&hash, password));
 
         // Truncated hash
         let hash = "$$scrypt$ln=14,r=8,\
                     p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt";
-        assert!(!verify_password(&hash, password.clone()));
+        assert!(!verify_password(&hash, password));
 
         // Extended hash
         let hash = "$$scrypt$ln=14,r=8,\
                     p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5cAAAA";
-        assert!(!verify_password(&hash, password.clone()));
+        assert!(!verify_password(&hash, password));
     }
 
     #[test]
@@ -438,10 +425,10 @@ mod api_tests {
 
     #[test]
     fn hash_and_key() {
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
 
         let alg = Algorithm::Single(Bcrypt::default()).into_wrapped(Hmac::default().into());
-        let hash = serde_mcf::to_string(&alg.hash(&password.clone().into())).unwrap();
+        let hash = serde_mcf::to_string(&alg.hash(&password)).unwrap();
         assert!(verify_password(&hash, password));
     }
 
@@ -474,8 +461,8 @@ mod api_tests {
         }
 
         // Yet two passwords differ
-        let hash1 = hash_password("hunter2".to_owned());
-        let hash2 = hash_password("hunter2".to_owned());
+        let hash1 = hash_password("hunter2");
+        let hash2 = hash_password("hunter2");
         assert!(hash1 != hash2);
     }
 }

@@ -28,6 +28,6 @@ fn main() {
     let keyed_function = libpasta::primitives::Hmac::with_key_id(&digest::SHA256, "StaticKey");
     config.set_keyed_hash(keyed_function);
 
-    let hash = config.hash_password("hunter2".to_string());
+    let hash = config.hash_password("hunter2");
     println!("Computed hash: {:?}", hash);
 }

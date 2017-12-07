@@ -159,15 +159,15 @@ impl Config {
     ///    /// ## Panics
     /// A panic indicates a problem with the serialization mechanisms, and should
     /// be reported.
-    pub fn hash_password(&self, password: String) -> String {
+    pub fn hash_password(&self, password: &str) -> String {
         self.hash_password_safe(password).expect_report("failed to hash password")
     }
 
     /// Same as `hash_password` but returns `Result` to allow error handling.
     /// TODO: decide on which API is best to use.
     #[doc(hidden)]
-    pub fn hash_password_safe(&self, password: String) -> Result<String> {
-        let pwd_hash = self.algorithm.hash(&password.into());
+    pub fn hash_password_safe(&self, password: &str) -> Result<String> {
+        let pwd_hash = self.algorithm.hash(password);
         Ok(serde_mcf::to_string(&pwd_hash)?)
     }
 
@@ -175,33 +175,33 @@ impl Config {
     ///
     /// If there is any error in processing the hash or password, this
     /// will simply return `false`.
-    pub fn verify_password(&self, hash: &str, password: String) -> bool {
+    pub fn verify_password(&self, hash: &str, password: &str) -> bool {
         self.verify_password_safe(hash, password).unwrap_or(false)
     }
 
     /// Same as `verify_password` but returns `Result` to allow error handling.
     /// TODO: decide on which API is best to use.
     #[doc(hidden)]
-    pub fn verify_password_safe(&self, hash: &str, password: String) -> Result<bool> {
+    pub fn verify_password_safe(&self, hash: &str, password: &str) -> Result<bool> {
         let mut pwd_hash: Output = serde_mcf::from_str(hash)?;
         pwd_hash.check_keys(self);
-        Ok(pwd_hash.verify(&password.into()))
+        Ok(pwd_hash.verify(password))
     }
 
     /// Verifies a supplied password against a previously computed password hash,
     /// and performs an in-place update of the hash value if the password verifies.
     /// Hence this needs to take a mutable `String` reference.
-    pub fn verify_password_update_hash(&self, hash: &mut String, password: String) -> bool {
+    pub fn verify_password_update_hash(&self, hash: &mut String, password: &str) -> bool {
         self.verify_password_update_hash_safe(hash, password).unwrap_or(false)
     }
 
     /// Same as `verify_password_update_hash`, but returns `Result` to allow error handling.
     #[doc(hidden)]
-    pub fn verify_password_update_hash_safe(&self, hash: &mut String, password: String) -> Result<bool> {
+    pub fn verify_password_update_hash_safe(&self, hash: &mut String, password: &str) -> Result<bool> {
         let pwd_hash: Output = serde_mcf::from_str(hash)?;
-        if pwd_hash.verify(&password.clone().into()) {
+        if pwd_hash.verify(password) {
             if pwd_hash.alg != *DEFAULT_ALG {
-                let new_hash = serde_mcf::to_string(&self.algorithm.hash(&password.into()))?;
+                let new_hash = serde_mcf::to_string(&self.algorithm.hash(password))?;
                 *hash = new_hash;
             }
             Ok(true)
@@ -352,7 +352,7 @@ mod test {
         assert_eq!(config.get_key("dummy"), Some(b"ThisIsAStaticKey".to_vec()));
         let hmac = primitives::Hmac::with_key_id(&ring::digest::SHA256, "dummy");
         config.set_keyed_hash(hmac);
-        let hash = config.hash_password("hunter2".into());
-        assert!(config.verify_password_safe(&hash, "hunter2".to_string()).unwrap())
+        let hash = config.hash_password("hunter2");
+        assert!(config.verify_password_safe(&hash, "hunter2").unwrap())
     }
 }

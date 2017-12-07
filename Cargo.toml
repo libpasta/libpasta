@@ -12,7 +12,6 @@ repository = "https://github.com/libpasta/libpasta"
 [dependencies]
 argon2rs = "0.2"
 cargon = "0.0.1"
-clear_on_drop = "0.2.2"
 data-encoding = "2.0.0"
 error-chain = "0.11.0"
 fastpbkdf2 = "0.1"

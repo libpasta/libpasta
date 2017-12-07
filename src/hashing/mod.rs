@@ -10,7 +10,6 @@ use std::default::Default;
 
 use config;
 use primitives::Primitive;
-use super::Cleartext;
 
 mod de;
 mod ser;
@@ -51,8 +50,8 @@ impl Default for Algorithm {
 
 impl Output {
     /// Verifies that the supplied password matches the hashed value.
-    pub fn verify(&self, password: &Cleartext) -> bool {
-        self.alg.verify(&password.0, &self.salt, &self.hash)
+    pub fn verify(&self, password: &str) -> bool {
+        self.alg.verify(password.as_bytes(), &self.salt, &self.hash)
     }
 
     pub(crate) fn check_keys(&mut self, config: &config::Config) {
@@ -62,9 +61,9 @@ impl Output {
 
 impl Algorithm {
     /// Type-safe function to compute the hash of a password.
-    pub fn hash(&self, password: &Cleartext) -> Output {
+    pub fn hash(&self, password: &str) -> Output {
         let salt = super::gen_salt(&**config::RANDOMNESS_SOURCE);
-        let output = self.hash_with_salt(&password.0, &salt);
+        let output = self.hash_with_salt(password.as_bytes(), &salt);
         Output {
             hash: output,
             salt: salt,
@@ -148,7 +147,7 @@ mod test {
     #[test]
     fn test_hash() {
         let alg = Algorithm::default();
-        let output = alg.hash(&"hunter2".to_string().into());
+        let output = alg.hash(&"hunter2");
         println!("{:?}", serde_mcf::to_string(&output).unwrap());
     }
 

@@ -105,7 +105,7 @@ mod bcrypt_test {
 
     #[test]
     fn verifies_bcrypt_hashes() {
-        let password = "hunter2".to_owned();
+        let password = "hunter2";
         let hash = "$2a$10$ckjEeyTD6estWyoofn4EROM9Ik2PqVcfcrepX.uGp6.aqRdCMN/Oe";
         assert!(::verify_password(&hash, password));
     }

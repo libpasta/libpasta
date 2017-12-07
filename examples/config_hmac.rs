@@ -15,7 +15,7 @@ fn main() {
     let keyed_function = libpasta::primitives::Hmac::with_key_id(&digest::SHA256, &key_id);
     config.set_keyed_hash(keyed_function);
 
-    let hash = config.hash_password("hunter2".to_string());
+    let hash = config.hash_password("hunter2");
     println!("Computed hash: {:?}", hash);
     // Outputs:
     // Computed hash: "$!$hmac$key_id=LNMhDy...,h=SHA256$$scrypt$ln=14,r=8,p=1$ZJ5EY...$grlNA...."
