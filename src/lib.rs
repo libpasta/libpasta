@@ -130,11 +130,39 @@ pub mod rpassword {
 pub mod errors {
     use ring;
     use serde_mcf;
+    use std::{fmt, result};
     // Create the Error, ErrorKind, ResultExt, and Result types
     error_chain!{
         foreign_links {
             Deserialize(serde_mcf::errors::Error) #[doc = "Errors from de/serializing MCF password hashes."] ;
-            Ring(ring::error::Unspecified) #[doc = "Errors originiating from `ring`"] ;
+            Ring(ring::error::Unspecified) #[doc = "Errors originating from `ring`"] ;
+        }
+    }
+
+    /// Convenience trait for producing detailed error messages on `expect`.
+    pub trait ExpectReport {
+        /// Return type on successful `expect`
+        type Inner;
+        /// Wraps `Result::expect` to produce a longer error message with
+        /// instructions for submitting a bug report.
+        fn expect_report(self, msg: &str) -> Self::Inner;
+    }
+
+    impl<T, E: fmt::Debug> ExpectReport for result::Result<T, E>  {
+        type Inner = T;
+        fn expect_report(self, msg: &str) -> T  {
+            self.expect(&format!("{}\nIf you are seeing this message, you have encountered \
+                a situation we did not think was possible. Please submit a bug \
+                report at https://github.com/libpasta/libpasta/issues with this message.\n", msg))
+        }
+    }
+
+    impl<T> ExpectReport for Option<T>  {
+        type Inner = T;
+        fn expect_report(self, msg: &str) -> T  {
+            self.expect(&format!("{}\nIf you are seeing this message, you have encountered\
+                a situation we did not think was possible. Please submit a bug\
+                report at https://github.com/libpasta/libpasta/issues with this message.\n", msg))
         }
     }
 }

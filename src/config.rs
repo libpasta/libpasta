@@ -160,7 +160,7 @@ impl Config {
     /// A panic indicates a problem with the serialization mechanisms, and should
     /// be reported.
     pub fn hash_password(&self, password: String) -> String {
-        self.hash_password_safe(password).expect("failed to hash password")
+        self.hash_password_safe(password).expect_report("failed to hash password")
     }
 
     /// Same as `hash_password` but returns `Result` to allow error handling.

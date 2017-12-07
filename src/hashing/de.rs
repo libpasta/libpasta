@@ -162,6 +162,10 @@ impl<'de> Visitor<'de> for OutputVisitor {
                         let fields: PastaNest = map.next_value()?;
                         let prim = ::primitives::Primitive::from((&fields.outer_id,
                                                                   &fields.outer_params));
+                        if prim == ::primitives::Poisoned.into() {
+                            #[allow(use_debug)]
+                            return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
+                        }
                         Ok(Output {
                             alg: Algorithm::Nested {
                                 outer: prim,
@@ -236,7 +240,12 @@ impl<'de> Deserialize<'de> for Primitive {
             params: serde_mcf::Map<String, serde_mcf::Value>,
         }
         let prim = PrimitiveStruct::deserialize(deserializer)?;
-        Ok((&prim.id, &prim.params).into())
+        let prim = (&prim.id, &prim.params).into();
+        if prim == ::primitives::Poisoned.into() {
+            #[allow(use_debug)]
+            return Err(D::Error::custom(format!("failed to deserialize")));
+        }
+        Ok(prim)
     }
 }
 

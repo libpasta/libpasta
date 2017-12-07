@@ -2,6 +2,7 @@ pub use self::hmac_ring::Hmac;
 
 mod hmac_ring {
     use config;
+    use errors::*;
     use key;
     use key::Store;
     use primitives::Primitive;
@@ -54,7 +55,7 @@ mod hmac_ring {
         /// Compute the scrypt hash
         fn compute(&self, password: &[u8], _salt: &[u8]) -> Vec<u8> {
             let mut hash = vec![0_u8; 32];
-            let key = self.key.as_ref().expect("key not found");
+            let key = self.key.as_ref().expect_report("key not found");
             hkdf::extract_and_expand(key, password, b"libpasta password hashing", &mut hash);
             hash
         }
