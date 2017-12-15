@@ -42,6 +42,9 @@ script:
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
         cargo clippy
       fi
+  - |
+      cargo build --verbose --manifest-path libpasta-capi/Cargo.toml
+      (cd libpasta/ctest && ./compile && LD_LIBRARY_PATH=../target/debug ./test)
 
 # Coverage report
 after_success:

@@ -1,0 +1,12 @@
+[package]
+name = "pasta"
+version = "0.0.5"
+authors = ["Sam Scott <sam.scott89@gmail.com>"]
+
+[dependencies]
+libc = "0.2"
+libpasta = { version = "0.0.5", path = ".." }
+rpassword = "2.0"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
