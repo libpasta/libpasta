@@ -18,9 +18,10 @@ libpasta.%: libpasta
 	cp libpasta-capi/target/release/$@ build/$@
 
 install: libpasta.so
-	sudo cp build/libpasta.so /usr/lib/libpasta.so.$(VERSION)
+	sudo install -D -m0755 build/libpasta.so /usr/lib/libpasta.so.${VERSION}
+	sudo ln -sf /usr/lib/libpasta.so.${VERSION} /usr/lib/libpasta.so
 
 uninstall:
-	sudo rm /usr/lib/libpasta.so.*
+	sudo rm /usr/lib/libpasta.so.$(VERSION)
 
 .PHONY: clean uninstall
