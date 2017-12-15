@@ -33,6 +33,17 @@ Therefore, we take great care to make this all opaque to the user:
     }
 ```
 
+## Installation
+
+To build the `libpasta` system library, simply run `make`. This outputs
+a `libpasta.so` file (or system-appropriate filename).
+
+You can also try running `make install` to automatically move it to the correct
+location.
+
+The library is generated as a result of building [libpasta-capi](libpasta-capi/),
+which is a C-API wrapper built around the Rust code.
+
 ### The rest of this README is dedicated to developing the code. For more about the library, and examples, please see: https://libpasta.github.io/ or the [documentation](https://docs.rs/libpasta/).
 
 ## Roadmap
