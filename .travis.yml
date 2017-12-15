@@ -44,7 +44,7 @@ script:
       fi
   - |
       cargo build --verbose --manifest-path libpasta-capi/Cargo.toml
-      (cd libpasta-capi/ctest && ./compile && LD_LIBRARY_PATH=../target/debug ./test)
+      (cd libpasta-capi/ctest && sh compile && LD_LIBRARY_PATH=../target/debug ./test)
 
 # Coverage report
 after_success:

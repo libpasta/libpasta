@@ -36,7 +36,7 @@ Therefore, we take great care to make this all opaque to the user:
 ## Installation
 
 To build the `libpasta` system library, simply run `make`. This outputs
-a `libpasta.so` file (or system-appropriate filename).
+a `build/libpasta.so` file (or system-appropriate filename).
 
 You can also try running `make install` to automatically move it to the correct
 location.
