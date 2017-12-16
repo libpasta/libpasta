@@ -3,4 +3,4 @@
 set -ex
 
 cargo build --manifest-path ../Cargo.toml
-gcc -DDEBUG -o test test.c -ansi -Wall -I../include -L../target/debug -lpasta
+gcc -DDEBUG -g -o test test.c -Wall -I../include -L../target/debug -lpasta

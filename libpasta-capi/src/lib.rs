@@ -50,8 +50,8 @@ pub extern "C" fn verify_password(hash: *const c_char, password: *const c_char) 
 }
 
 #[no_mangle]
-pub extern "C" fn verify_password_update_hash(hash: *const c_char, password: *const c_char) -> *mut c_char {
-    let mut new_hash = unsafe {
+pub extern "C" fn verify_password_update_hash(hash: *const c_char, password: *const c_char, new_hash: *mut *const c_char) -> bool {
+    let mut hash = unsafe {
         assert!(!hash.is_null());
         CStr::from_ptr(hash).to_str().unwrap().to_owned()
     };
@@ -59,10 +59,14 @@ pub extern "C" fn verify_password_update_hash(hash: *const c_char, password: *co
         assert!(!password.is_null());
         CStr::from_ptr(password).to_str().unwrap()
     };
-    if libpasta::verify_password_update_hash(&mut new_hash, password) {
-        CString::new(new_hash).unwrap().into_raw()
+    if libpasta::verify_password_update_hash(&mut hash, password) {
+        unsafe {
+            *new_hash = CString::new(hash).unwrap().into_raw();
+        }
+        // mem::forget(hash);
+        true
     } else {
-        CString::new("").unwrap().into_raw()
+        false
     }
 }
 
