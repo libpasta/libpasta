@@ -22,6 +22,9 @@ int main(void) {
     // free_string(hash) // dont need to free this since it's static
     free_string(newhash);
 
+    assert (!verify_password_update_hash(hash, "not my password", &newhash));
+    printf("New hash: %s\n", newhash);
+    free_string(newhash);
 
     printf("\x1b[1;32mC test passed\x1b[m\n");
     return 0;

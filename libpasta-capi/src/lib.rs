@@ -59,15 +59,11 @@ pub extern "C" fn verify_password_update_hash(hash: *const c_char, password: *co
         assert!(!password.is_null());
         CStr::from_ptr(password).to_str().unwrap()
     };
-    if libpasta::verify_password_update_hash(&mut hash, password) {
-        unsafe {
-            *new_hash = CString::new(hash).unwrap().into_raw();
-        }
-        // mem::forget(hash);
-        true
-    } else {
-        false
+    let res = libpasta::verify_password_update_hash(&mut hash, password);
+    unsafe {
+        *new_hash = CString::new(hash).unwrap().into_raw();
     }
+    res
 }
 
 #[no_mangle]
