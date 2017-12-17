@@ -8,7 +8,7 @@ clean:
 force:
 	cargo clean --manifest-path libpasta-capi/Cargo.toml
 	make clean
-	make default
+	make all
 
 libpasta: Cargo.toml libpasta-capi/Cargo.toml
 	cargo build --release --manifest-path libpasta-capi/Cargo.toml

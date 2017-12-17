@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include "pasta.h"
 
 int main(void) {
@@ -18,6 +19,7 @@ int main(void) {
     bool res = verify_password_update_hash(hash, "my password", &newhash);
     assert (res);
     printf("New hash: %s\n", newhash);
+    assert (strcmp(newhash, hash) != 0);
     assert (verify_password(newhash, "my password"));
     // free_string(hash) // dont need to free this since it's static
     free_string(newhash);
