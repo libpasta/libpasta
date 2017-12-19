@@ -12,12 +12,12 @@ void test_hash_and_verify() {
 }
 
 void test_migrate() {
-    char *hash = "$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
+    char *hash = (char *)"$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
     hash = migrate_hash(hash);
     // printf("New hash: %s\n", hash);
     free_string(hash);
 
-    hash = "$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
+    hash = (char *)"$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
     char *newhash;
     bool res = verify_password_update_hash_in_place(hash, "my password", &newhash);
     assert (res);

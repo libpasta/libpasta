@@ -7,7 +7,7 @@ use cbindgen::{Builder, Config, Language};
 fn main() {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
-    let config = Config { language: Language::C, .. Config::default() };
+    let config = Config { language: Language::Cxx, .. Config::default() };
 
     Builder::new()
           .with_crate(crate_dir)
