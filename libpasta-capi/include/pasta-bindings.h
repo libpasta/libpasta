@@ -1,23 +1,26 @@
-#include <cstdint>
-#include <cstdlib>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
-// Holds possible configuration options
-// See the [module level documentation](index.html) for more information.
-struct Config;
+/*
+ * Holds possible configuration options
+ * See the [module level documentation](index.html) for more information.
+ */
+typedef struct Config Config;
 
-// Password hashing primitives
-//
-// Each variant is backed up by different implementation.
-// Internally, primitives can either be static values, for example,
-// the `lazy_static` generated value `DEFAULT_PRIM`, or dynamically allocated
-// variables, which are `Arc<Box<...>>`.
-//
-// Most operations are expected to be performed using the static functions,
-// since most use the default algorithms. However, the flexibilty to support
-// arbitrary parameter sets is essential.
-struct Primitive;
-
-extern "C" {
+/*
+ * Password hashing primitives
+ *
+ * Each variant is backed up by different implementation.
+ * Internally, primitives can either be static values, for example,
+ * the `lazy_static` generated value `DEFAULT_PRIM`, or dynamically allocated
+ * variables, which are `Arc<Box<...>>`.
+ *
+ * Most operations are expected to be performed using the static functions,
+ * since most use the default algorithms. However, the flexibilty to support
+ * arbitrary parameter sets is essential.
+ */
+typedef struct Primitive Primitive;
 
 char *config_hash_password(const Config *config, const char *password);
 
@@ -61,5 +64,3 @@ char *read_password(const char *prompt);
 bool verify_password(const char *hash, const char *password);
 
 bool verify_password_update_hash(const char *hash, const char *password, char **new_hash);
-
-} // extern "C"
