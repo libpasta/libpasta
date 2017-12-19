@@ -1,13 +1,13 @@
 [package]
 name = "pasta"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Sam Scott <sam.scott89@gmail.com>"]
 build = "build.rs"
 
 
 [dependencies]
 libc = "0.2"
-libpasta = { version = "0.0.5", path = ".." }
+libpasta = { version = "0.0.6", path = ".." }
 rpassword = "2.0"
 
 [build-dependencies]
