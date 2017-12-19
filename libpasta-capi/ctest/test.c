@@ -19,7 +19,7 @@ void test_migrate() {
 
     hash = "$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
     char *newhash;
-    bool res = verify_password_update_hash(hash, "my password", &newhash);
+    bool res = verify_password_update_hash_in_place(hash, "my password", &newhash);
     assert (res);
     // printf("New hash: %s\n", newhash);
     assert (strcmp(newhash, hash) != 0);
@@ -27,7 +27,7 @@ void test_migrate() {
     // free_string(hash) // dont need to free this since it's static
     free_string(newhash);
 
-    assert (!verify_password_update_hash(hash, "not my password", &newhash));
+    assert (!verify_password_update_hash_in_place(hash, "not my password", &newhash));
     // printf("New hash: %s\n", newhash);
     free_string(newhash);
 }

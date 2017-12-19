@@ -74,7 +74,7 @@ pub extern "C" fn config_verify_password(config: *const Config, hash: *const c_c
 }
 
 #[no_mangle]
-pub extern "C" fn verify_password_update_hash(hash: *const c_char, password: *const c_char, new_hash: *mut *mut c_char) -> bool {
+pub extern "C" fn verify_password_update_hash_in_place(hash: *const c_char, password: *const c_char, new_hash: *mut *mut c_char) -> bool {
     let mut hash = unsafe { ffi_string!(hash).to_owned() };
     let password = unsafe { ffi_string!(password) };
     let res = libpasta::verify_password_update_hash(&mut hash, password);

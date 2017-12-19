@@ -63,4 +63,4 @@ char *read_password(const char *prompt);
 
 bool verify_password(const char *hash, const char *password);
 
-bool verify_password_update_hash(const char *hash, const char *password, char **new_hash);
+bool verify_password_update_hash_in_place(const char *hash, const char *password, char **new_hash);
