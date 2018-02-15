@@ -33,6 +33,12 @@ Therefore, we take great care to make this all opaque to the user:
     }
 ```
 
+## Comparison
+
+A brief comparison between libpasta and some alternatives can be found
+in [the documentation](https://libpasta.github.io/introduction/alternatives/).
+
+
 ## Installation
 
 To build the `libpasta` system library, simply run `make`. This outputs
