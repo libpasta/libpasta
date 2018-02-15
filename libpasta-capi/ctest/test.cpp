@@ -12,17 +12,24 @@ void test_hash_and_verify() {
 }
 
 void test_migrate() {
-    char *hash = (char *)"$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
-    hash = migrate_hash(hash);
+    char *old_hash = (char *)"$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
+    char *hash;
+    HashUpdateFfi *res = migrate_hash(old_hash);
+    switch(res->tag) {
+        case HashUpdateFfi::Tag::Updated: hash = res->updated._0; break;
+        case HashUpdateFfi::Tag::Ok: assert (false && "Expected a password migration");
+        case HashUpdateFfi::Tag::Failed: assert (false && "Problem migrating password");
+    }
+    assert (strcmp(old_hash, hash) != 0);
     // printf("New hash: %s\n", hash);
     free_string(hash);
 
     hash = (char *)"$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
     char *newhash;
-    HashUpdateFfi *res = verify_password_update_hash(hash, "my password");
+    res = verify_password_update_hash(hash, "my password");
     switch(res->tag) {
         case HashUpdateFfi::Tag::Updated: newhash = res->updated._0;
-        case HashUpdateFfi::Tag::Verified: printf("Password verified\n"); break;
+        case HashUpdateFfi::Tag::Ok: printf("Password verified\n"); break;
         case HashUpdateFfi::Tag::Failed: assert (false && "Password failed");
     }
     printf("New hash: %s\n", newhash);

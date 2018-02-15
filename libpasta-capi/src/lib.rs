@@ -36,7 +36,7 @@ macro_rules! box_ptr {
 #[repr(C)]
 pub enum HashUpdateFfi {
     Updated(*mut c_char),
-    Verified,
+    Ok,
     Failed,
 }
 
@@ -44,7 +44,7 @@ impl From<HashUpdate> for HashUpdateFfi {
     fn from(other: HashUpdate) -> Self {
         match other {
             HashUpdate::Verified(Some(x)) => HashUpdateFfi::Updated(CString::new(x).unwrap().into_raw()),
-            HashUpdate::Verified(None) => HashUpdateFfi::Verified,
+            HashUpdate::Verified(None) => HashUpdateFfi::Ok,
             HashUpdate::Failed => HashUpdateFfi::Failed,
         }
     }
@@ -118,18 +118,24 @@ use libpasta::primitives::*;
 use libpasta::config::Config;
 
 #[no_mangle]
-pub extern "C" fn migrate_hash(hash: *const c_char) -> *mut c_char {
-    let mut hash = unsafe { ffi_string!(hash).to_owned() };
-    libpasta::migrate_hash(&mut hash);
-    CString::new(hash).unwrap().into_raw()
+pub extern "C" fn migrate_hash(hash: *const c_char) -> *mut HashUpdateFfi {
+    let hash = unsafe { ffi_string!(hash).to_owned() };
+    if let Some(new_hash) = libpasta::migrate_hash(&hash) {
+        box_ptr!(HashUpdateFfi::Updated(CString::new(new_hash).unwrap().into_raw()))
+    } else {
+        box_ptr!(HashUpdateFfi::Ok)
+    }
 }
 
 #[no_mangle]
-pub extern "C" fn config_migrate_hash(config: *const Config, hash: *const c_char) -> *mut c_char {
+pub extern "C" fn config_migrate_hash(config: *const Config, hash: *const c_char) -> *mut HashUpdateFfi {
     let config = unsafe { ffi_ref!(config) };
-    let mut hash = unsafe { ffi_string!(hash).to_owned() };
-    config.migrate_hash(&mut hash);
-    CString::new(hash).unwrap().into_raw()
+    let hash = unsafe { ffi_string!(hash).to_owned() };
+    if let Some(new_hash) = config.migrate_hash(&hash) {
+        box_ptr!(HashUpdateFfi::Updated(CString::new(new_hash).unwrap().into_raw()))
+    } else {
+        box_ptr!(HashUpdateFfi::Ok)
+    }
 }
 
 

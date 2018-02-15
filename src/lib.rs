@@ -439,9 +439,14 @@ mod api_tests {
     fn migrate_hash_ok() {
         let mut hash = "$2a$10$175ikf/E6E.73e83.fJRbODnYWBwmfS0ENdzUBZbedUNGO.99wJfa".to_owned();
         if let Some(new_hash) = migrate_hash(&hash) {
+            println!("{:?}", new_hash);
+            assert!(new_hash != hash);
             hash = new_hash;
+        } else {
+            assert!(false, "expected to migrate the hash");
         }
         println!("{:?}", hash);
+        assert!(migrate_hash(&hash).is_none());
     }
 
     #[test]

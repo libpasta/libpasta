@@ -20,7 +20,7 @@ struct Primitive;
 struct HashUpdateFfi {
   enum class Tag {
     Updated,
-    Verified,
+    Ok,
     Failed,
   };
 
@@ -38,7 +38,7 @@ extern "C" {
 
 char *config_hash_password(const Config *config, const char *password);
 
-char *config_migrate_hash(const Config *config, const char *hash);
+HashUpdateFfi *config_migrate_hash(const Config *config, const char *hash);
 
 bool config_verify_password(const Config *config, const char *hash, const char *password);
 
@@ -64,7 +64,7 @@ void free_string(char *s);
 
 char *hash_password(const char *password);
 
-char *migrate_hash(const char *hash);
+HashUpdateFfi *migrate_hash(const char *hash);
 
 Primitive *new_argon2i(unsigned int passes, unsigned int lanes, unsigned int kib);
 

@@ -11,10 +11,11 @@
 /// Many thanks to [panicbit](https://github.com/panicbit) for helping to
 /// get the `Deref` implementation working to make all the magic happen.
 
+use std::cmp::Ordering;
 use std::ops::Deref;
 use std::sync::Arc;
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug)]
 /// Enum to hold either static references or reference-counted owned objects.
 /// Implements `Deref` to `T` for ease of use.
 /// Since internal data is either a static reference, or an `Arc`, cloning
@@ -42,5 +43,17 @@ impl<T: ?Sized> Clone for Sod<T> {
             Sod::Static(t) => Sod::Static(t),
             Sod::Dynamic(ref t) => Sod::Dynamic(Arc::clone(t)),
         }
+    }
+}
+
+impl<T: PartialEq + ?Sized> PartialEq<Sod<T>> for Sod<T> {
+    fn eq(&self, other: &Sod<T>) -> bool {
+        self.deref().eq(other.deref())
+    }
+}
+
+impl<T: PartialOrd + ?Sized> PartialOrd<Sod<T>> for Sod<T> {
+    fn partial_cmp(&self, other: &Sod<T>) -> Option<Ordering> {
+        self.deref().partial_cmp(other.deref())
     }
 }
