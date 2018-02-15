@@ -19,6 +19,7 @@ use ring::rand::SecureRandom;
 use serde_mcf;
 use serde_yaml;
 
+use super::HashUpdate;
 use key;
 use errors::*;
 use hashing::{Algorithm, Output};
@@ -191,22 +192,23 @@ impl Config {
     /// Verifies a supplied password against a previously computed password hash,
     /// and performs an in-place update of the hash value if the password verifies.
     /// Hence this needs to take a mutable `String` reference.
-    pub fn verify_password_update_hash(&self, hash: &mut String, password: &str) -> bool {
-        self.verify_password_update_hash_safe(hash, password).unwrap_or(false)
+    pub fn verify_password_update_hash(&self, hash: &str, password: &str) -> HashUpdate {
+        self.verify_password_update_hash_safe(hash, password).unwrap_or(HashUpdate::Failed)
     }
 
     /// Same as `verify_password_update_hash`, but returns `Result` to allow error handling.
     #[doc(hidden)]
-    pub fn verify_password_update_hash_safe(&self, hash: &mut String, password: &str) -> Result<bool> {
+    pub fn verify_password_update_hash_safe(&self, hash: &str, password: &str) -> Result<HashUpdate> {
         let pwd_hash: Output = serde_mcf::from_str(hash)?;
         if pwd_hash.verify(password) {
             if pwd_hash.alg != *DEFAULT_ALG {
                 let new_hash = serde_mcf::to_string(&self.algorithm.hash(password))?;
-                *hash = new_hash;
+                Ok(HashUpdate::Verified(Some(new_hash)))
+            } else {
+                Ok(HashUpdate::Verified(None))
             }
-            Ok(true)
         } else {
-            Ok(false)
+            Ok(HashUpdate::Failed)
         }
     }
 
@@ -219,18 +221,18 @@ impl Config {
     ///
     /// If the password is also available, the `verify_password_update_hash` should
     /// instead be used.
-    pub fn migrate_hash(&self, hash: &mut String) {
-        self.migrate_hash_safe(hash).expect("failed to migrate password");
+    pub fn migrate_hash(&self, hash: &str) -> Option<String> {
+        self.migrate_hash_safe(hash).expect("failed to migrate password")
     }
 
     /// Same as `migrate_hash` but returns `Result` to allow error handling.
     #[doc(hidden)]
-    pub fn migrate_hash_safe(&self, hash: &mut String) -> Result<()> {
+    pub fn migrate_hash_safe(&self, hash: &str) -> Result<Option<String>> {
         let pwd_hash: Output = serde_mcf::from_str(hash)?;
 
         if !pwd_hash.alg.needs_migrating() {
             // no need to migrate
-            return Ok(());
+            return Ok(None);
         }
 
         let new_params = pwd_hash.alg.to_wrapped(self.primitive.clone());
@@ -243,8 +245,7 @@ impl Config {
             salt: new_salt,
         };
 
-        *hash = serde_mcf::to_string(&new_hash)?;
-        Ok(())
+        Ok(Some(serde_mcf::to_string(&new_hash)?))
     }
 
 

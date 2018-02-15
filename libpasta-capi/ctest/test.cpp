@@ -19,17 +19,19 @@ void test_migrate() {
 
     hash = (char *)"$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
     char *newhash;
-    bool res = verify_password_update_hash_in_place(hash, "my password", &newhash);
-    assert (res);
-    // printf("New hash: %s\n", newhash);
+    HashUpdateFfi *res = verify_password_update_hash(hash, "my password");
+    switch(res->tag) {
+        case HashUpdateFfi::Tag::Updated: newhash = res->updated._0;
+        case HashUpdateFfi::Tag::Verified: printf("Password verified\n"); break;
+        case HashUpdateFfi::Tag::Failed: assert (false && "Password failed");
+    }
+    printf("New hash: %s\n", newhash);
     assert (strcmp(newhash, hash) != 0);
     assert (verify_password(newhash, "my password"));
     // free_string(hash) // dont need to free this since it's static
     free_string(newhash);
 
-    assert (!verify_password_update_hash_in_place(hash, "not my password", &newhash));
-    // printf("New hash: %s\n", newhash);
-    free_string(newhash);
+    assert (verify_password_update_hash(hash, "not my password")->tag == HashUpdateFfi::Tag::Failed);
 }
 
 void test_config() {

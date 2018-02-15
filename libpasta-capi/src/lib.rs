@@ -2,6 +2,8 @@ extern crate libc;
 extern crate libpasta;
 extern crate rpassword;
 
+use libpasta::HashUpdate;
+
 use libc::{c_char, c_uchar, c_uint};
 use rpassword::prompt_password_stdout;
 
@@ -23,6 +25,29 @@ macro_rules! ffi_string {
             CStr::from_ptr($name).to_str().unwrap()
         }
     )
+}
+
+macro_rules! box_ptr {
+    ($x:expr) => (
+        Box::into_raw(Box::new($x))
+    )
+}
+
+#[repr(C)]
+pub enum HashUpdateFfi {
+    Updated(*mut c_char),
+    Verified,
+    Failed,
+}
+
+impl From<HashUpdate> for HashUpdateFfi {
+    fn from(other: HashUpdate) -> Self {
+        match other {
+            HashUpdate::Verified(Some(x)) => HashUpdateFfi::Updated(CString::new(x).unwrap().into_raw()),
+            HashUpdate::Verified(None) => HashUpdateFfi::Verified,
+            HashUpdate::Failed => HashUpdateFfi::Failed,
+        }
+    }
 }
 
 #[no_mangle]
@@ -74,26 +99,18 @@ pub extern "C" fn config_verify_password(config: *const Config, hash: *const c_c
 }
 
 #[no_mangle]
-pub extern "C" fn verify_password_update_hash_in_place(hash: *const c_char, password: *const c_char, new_hash: *mut *mut c_char) -> bool {
-    let mut hash = unsafe { ffi_string!(hash).to_owned() };
+pub extern "C" fn verify_password_update_hash(hash: *const c_char, password: *const c_char) -> *mut HashUpdateFfi {
+    let hash     = unsafe { ffi_string!(hash) };
     let password = unsafe { ffi_string!(password) };
-    let res = libpasta::verify_password_update_hash(&mut hash, password);
-    unsafe {
-        *new_hash = CString::new(hash).unwrap().into_raw();
-    }
-    res
+    box_ptr!(libpasta::verify_password_update_hash(hash, password).into())
 }
 
 #[no_mangle]
-pub extern "C" fn config_verify_password_update_hash(config: *const Config, hash: *const c_char, password: *const c_char, new_hash: *mut *mut c_char) -> bool {
-    let config = unsafe { ffi_ref!(config) };
-    let mut hash = unsafe { ffi_string!(hash).to_owned() };
+pub extern "C" fn config_verify_password_update_hash(config: *const Config, hash: *const c_char, password: *const c_char) -> *mut HashUpdateFfi {
+    let config   = unsafe { ffi_ref!(config) };
+    let hash     = unsafe { ffi_string!(hash) };
     let password = unsafe { ffi_string!(password) };
-    let res = config.verify_password_update_hash(&mut hash, password);
-    unsafe {
-        *new_hash = CString::new(hash).unwrap().into_raw();
-    }
-    res
+    box_ptr!(config.verify_password_update_hash(hash, password).into())
 }
 
 // use libpasta::primitives::Primitive;
@@ -119,42 +136,42 @@ pub extern "C" fn config_migrate_hash(config: *const Config, hash: *const c_char
 #[no_mangle]
 pub extern "C" fn config_with_primitive(prim: *const Primitive) -> *mut Config {
     let prim = unsafe { ffi_ref!(prim) };
-    Box::into_raw(Box::new(Config::with_primitive(prim.clone())))
+    box_ptr!(Config::with_primitive(prim.clone()))
 }
 
 #[no_mangle]
 pub extern "C" fn default_argon2i() -> *mut Primitive {
-    Box::into_raw(Box::new(Argon2::default()))
+    box_ptr!(Argon2::default())
 }
 
 #[no_mangle]
 pub extern "C" fn default_bcrypt() -> *mut Primitive {
-    Box::into_raw(Box::new(Bcrypt::default()))
+    box_ptr!(Bcrypt::default())
 }
 
 #[no_mangle]
 pub extern "C" fn default_pbkdf2i() -> *mut Primitive {
-    Box::into_raw(Box::new(Pbkdf2::default()))
+    box_ptr!(Pbkdf2::default())
 }
 
 #[no_mangle]
 pub extern "C" fn default_scrypt() -> *mut Primitive {
-    Box::into_raw(Box::new(Scrypt::default()))
+    box_ptr!(Scrypt::default())
 }
 
 #[no_mangle]
 pub extern "C" fn new_argon2i(passes: c_uint, lanes: c_uint, kib: c_uint) -> *mut Primitive {
-    Box::into_raw(Box::new(Argon2::new(passes, lanes, kib)))
+    box_ptr!(Argon2::new(passes, lanes, kib))
 }
 
 #[no_mangle]
 pub extern "C" fn new_bcrypt(cost: c_uint) -> *mut Primitive {
-    Box::into_raw(Box::new(Bcrypt::new(cost)))
+    box_ptr!(Bcrypt::new(cost))
 }
 
 #[no_mangle]
 pub extern "C" fn new_scrypt(log_n: c_uchar, r: c_uint, p: c_uint) -> *mut Primitive {
-    Box::into_raw(Box::new(Scrypt::new(log_n, r, p)))
+    box_ptr!(Scrypt::new(log_n, r, p))
 }
 
 #[no_mangle]
@@ -168,3 +185,19 @@ pub extern "C" fn free_Config(config: *mut Config) {
 
 }
 
+#[cfg(test)]
+mod test {
+    use std::ffi::{CStr, CString};
+
+    #[test]
+    fn test_migrate() {
+        unsafe {
+            let hash = "$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";
+            let hash = CString::new(hash).unwrap().into_raw();
+            let password = "my password";
+            let password = CString::new(password).unwrap().into_raw();
+            let res = super::verify_password_update_hash(hash, password);
+        }
+
+    }
+}

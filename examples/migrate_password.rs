@@ -1,5 +1,6 @@
 extern crate libpasta;
 use libpasta::rpassword::*;
+use libpasta::HashUpdate;
 
 #[derive(Debug)]
 struct User {
@@ -10,18 +11,27 @@ struct User {
 fn migrate_users(users: &mut [User]) {
     // Step 1: Wrap old hash
     for user in users {
-        libpasta::migrate_hash(&mut user.password_hash);
+        if let Some(new_hash) = libpasta::migrate_hash(&user.password_hash) {
+            user.password_hash = new_hash;
+        }
     }
 }
 
 fn auth_user(user: &mut User) {
     // Step 2: Update algorithm during log in
     let password = prompt_password_stdout("Enter password:").unwrap();
-    if libpasta::verify_password_update_hash(&mut user.password_hash, &password) {
-        println!("Password correct, new hash: \n{}", user.password_hash);
-    } else {
-        println!("Password incorrect, hash unchanged: \n{}",
-                 user.password_hash);
+
+    match libpasta::verify_password_update_hash(&user.password_hash, &password) {
+        HashUpdate::Verified(output) => {
+            if let Some(new_hash) = output {
+                user.password_hash = new_hash;
+            }
+            println!("Password correct, new hash: \n{}", user.password_hash);
+        },
+        HashUpdate::Failed => {
+            println!("Password incorrect, hash unchanged: \n{}",
+                     user.password_hash);
+        }
     }
 }
 
@@ -36,12 +46,9 @@ fn main() {
     auth_user(&mut users[0]);
 }
 
-// Do not use this code as a good example of how to do hashing.
-// This is intentionally awkward
-use libpasta::{hashing, primitives};
-extern crate serde_mcf;
+use libpasta::{config, primitives};
 
 fn deprected_hash(password: &str) -> String {
-    let alg = hashing::Algorithm::Single(primitives::Bcrypt::default());
-    serde_mcf::to_string(&alg.hash(password)).unwrap()
+    let config = config::Config::with_primitive(primitives::Bcrypt::default());
+    config.hash_password(password)
 }

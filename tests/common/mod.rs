@@ -33,5 +33,5 @@ pub fn get_test_path(filename: &str) -> PathBuf {
 }
 
 pub fn init_test() {
-    self::env_logger::init().unwrap();
+    self::env_logger::init();
 }
