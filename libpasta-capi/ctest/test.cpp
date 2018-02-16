@@ -21,7 +21,7 @@ void test_migrate() {
         case HashUpdateFfi::Tag::Failed: assert (false && "Problem migrating password");
     }
     assert (strcmp(old_hash, hash) != 0);
-    // printf("New hash: %s\n", hash);
+    printf("New hash: %s\n", hash);
     free_string(hash);
 
     hash = (char *)"$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa";

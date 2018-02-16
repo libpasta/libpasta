@@ -3,6 +3,8 @@ extern crate libpasta;
 extern crate rpassword;
 
 use libpasta::HashUpdate;
+use libpasta::primitives::*;
+use libpasta::config::Config;
 
 use libc::{c_char, c_uchar, c_uint};
 use rpassword::prompt_password_stdout;
@@ -113,10 +115,6 @@ pub extern "C" fn config_verify_password_update_hash(config: *const Config, hash
     box_ptr!(config.verify_password_update_hash(hash, password).into())
 }
 
-// use libpasta::primitives::Primitive;
-use libpasta::primitives::*;
-use libpasta::config::Config;
-
 #[no_mangle]
 pub extern "C" fn migrate_hash(hash: *const c_char) -> *mut HashUpdateFfi {
     let hash = unsafe { ffi_string!(hash).to_owned() };
@@ -193,7 +191,7 @@ pub extern "C" fn free_Config(config: *mut Config) {
 
 #[cfg(test)]
 mod test {
-    use std::ffi::{CStr, CString};
+    use std::ffi::CString;
 
     #[test]
     fn test_migrate() {
