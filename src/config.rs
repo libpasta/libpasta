@@ -68,18 +68,6 @@ lazy_static! {
     };
 }
 
-/// Configuration presets
-pub enum Presets {
-    /// The defaults used, useful to make small tweaks to the default set
-    Default,
-    /// Suitable values for interactive logins (~0.5s hashing times)
-    Interactive,
-    /// Stronger values for non-interactive actions, e.g. disk encryption (~3s hashing times)
-    NonInteractive,
-    /// Combines both `Argon2i` and `scrypt` for side-channel resistance.
-    Paranoid,
-}
-
 /// Holds possible configuration options
 /// See the [module level documentation](index.html) for more information.
 #[derive(Debug, Deserialize, Serialize)]
@@ -115,17 +103,6 @@ impl Config {
             primitive: primitive,
             keyed: None,
             keys: key::get_global(),
-        }
-    }
-
-    /// Generates a `Config` from a selected preset
-    /// configuration.
-    pub fn from_preset(preset: &Presets) -> Self {
-        match *preset {
-            Presets::Default => Self::default(),
-            Presets::Interactive => unimplemented!(),
-            Presets::NonInteractive => unimplemented!(),
-            Presets::Paranoid => unimplemented!(),
         }
     }
 
