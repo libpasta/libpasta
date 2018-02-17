@@ -327,6 +327,11 @@ mod test {
     fn use_config() {
         let config = Config::with_primitive(primitives::Argon2::default());
         let hash = config.hash_password("hunter2".into());
+        assert!(config.verify_password(&hash, "hunter2".into()));
+
+        let mut config = Config::default();
+        config.set_primitive(primitives::Bcrypt::default());
+        let hash = config.hash_password("hunter2".into());
         assert!(verify_password(&hash, "hunter2".into()));
     }
 
@@ -350,7 +355,8 @@ mod test {
     fn alternate_key_source() {
         let mut config = Config::default();
         config.set_key_source(&STATIC_SOURCE);
-        assert_eq!(config.get_key("dummy"), Some(b"ThisIsAStaticKey".to_vec()));
+        let id = config.add_key(&[]);
+        assert_eq!(config.get_key(&id), Some(b"ThisIsAStaticKey".to_vec()));
         let hmac = primitives::Hmac::with_key_id(&ring::digest::SHA256, "dummy");
         config.set_keyed_hash(hmac);
         let hash = config.hash_password("hunter2");
