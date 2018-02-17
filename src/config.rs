@@ -201,7 +201,7 @@ impl Config {
     pub fn verify_password_update_hash_safe(&self, hash: &str, password: &str) -> Result<HashUpdate> {
         let pwd_hash: Output = serde_mcf::from_str(hash)?;
         if pwd_hash.verify(password) {
-            if pwd_hash.alg != *DEFAULT_ALG {
+            if pwd_hash.alg != self.algorithm {
                 let new_hash = serde_mcf::to_string(&self.algorithm.hash(password))?;
                 Ok(HashUpdate::Verified(Some(new_hash)))
             } else {

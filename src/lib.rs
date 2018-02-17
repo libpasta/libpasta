@@ -227,6 +227,7 @@ pub fn verify_password_safe(hash: &str, password: &str) -> Result<bool> {
 ///   - Password verified, and the hash was migrated
 ///   - Password verified, but the hash did not need to be migrated
 ///   - Incorrect password (or other verification failure)
+#[derive(Debug, PartialEq)]
 pub enum HashUpdate {
     /// Password verification succeeded, with new string if migration was
     /// performed
@@ -385,13 +386,9 @@ mod api_tests {
             hash = new_hash;
         }
         println!("Migrated: {:?}", hash);
-
-        let password = "hunter2";
         assert!(verify_password(&hash, password));
 
-        let password = "hunter2";
         if let HashUpdate::Verified(Some(new_hash)) = verify_password_update_hash(&hash, password) {
-            let password = "hunter2";
             let mut pwd_hash: Output = serde_mcf::from_str(&new_hash).unwrap();
             // Note, this is not the intended way to use these structs, but just
             // a sanity check to make sure the new algorithm is _actually_ the
@@ -437,16 +434,24 @@ mod api_tests {
 
     #[test]
     fn migrate_hash_ok() {
-        let mut hash = "$2a$10$175ikf/E6E.73e83.fJRbODnYWBwmfS0ENdzUBZbedUNGO.99wJfa".to_owned();
-        if let Some(new_hash) = migrate_hash(&hash) {
-            println!("{:?}", new_hash);
-            assert!(new_hash != hash);
-            hash = new_hash;
-        } else {
-            assert!(false, "expected to migrate the hash");
-        }
-        println!("{:?}", hash);
-        assert!(migrate_hash(&hash).is_none());
+        let hash = "$2a$10$175ikf/E6E.73e83.fJRbODnYWBwmfS0ENdzUBZbedUNGO.99wJfa".to_owned();
+        let new_hash = migrate_hash(&hash).unwrap();
+        assert!(new_hash != hash);
+        assert!(migrate_hash(&new_hash).is_none());
+    }
+
+    #[test]
+    fn vpuh_ok() {
+        let password = "hunter2";
+        let cfg = Config::with_primitive(Bcrypt::default());
+        let hash = cfg.hash_password(password);
+        let res = verify_password_update_hash(&hash, "hunter2");
+        let hash = match res {
+            HashUpdate::Verified(Some(x)) => x,
+            _ => panic!("should have migrated"),
+        };
+        assert_eq!(verify_password_update_hash(&hash, "hunter2"), HashUpdate::Verified(None));
+        assert_eq!(verify_password_update_hash(&hash, "*******"), HashUpdate::Failed);
     }
 
     #[test]
