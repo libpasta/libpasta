@@ -1,6 +1,6 @@
 [package]
 name = "libpasta"
-version = "0.0.6"
+version = "0.1.0-rc0"
 authors = ["Sam Scott <me@samjs.co.uk>"]
 categories = ["authentication", "cryptography"]
 description = "All-inclusive password hashing library"
@@ -18,7 +18,7 @@ fastpbkdf2 = "0.1"
 itertools = "0.7"
 lazy_static = "1.0"
 log = "0.4"
-num-traits = "0.1"
+num-traits = "0.2"
 ring-pwhash = ">= 0.11, < 0.13"
 rpassword = "2.0"
 rust-crypto = "0.2"
@@ -33,7 +33,7 @@ default-features = false
 features = []
 
 [dev-dependencies]
-env_logger = "0.4"
+env_logger = "0.5"
 time = "0.1.36"
 
 [features]

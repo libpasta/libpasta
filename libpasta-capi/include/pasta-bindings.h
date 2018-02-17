@@ -17,18 +17,34 @@ struct Config;
 // arbitrary parameter sets is essential.
 struct Primitive;
 
+struct HashUpdateFfi {
+  enum class Tag {
+    Updated,
+    Ok,
+    Failed,
+  };
+
+  struct Updated_Body {
+    char *_0;
+  };
+
+  Tag tag;
+  union {
+    Updated_Body updated;
+  };
+};
+
 extern "C" {
 
 char *config_hash_password(const Config *config, const char *password);
 
-char *config_migrate_hash(const Config *config, const char *hash);
+HashUpdateFfi *config_migrate_hash(const Config *config, const char *hash);
 
 bool config_verify_password(const Config *config, const char *hash, const char *password);
 
-bool config_verify_password_update_hash(const Config *config,
-                                        const char *hash,
-                                        const char *password,
-                                        char **new_hash);
+HashUpdateFfi *config_verify_password_update_hash(const Config *config,
+                                                  const char *hash,
+                                                  const char *password);
 
 Config *config_with_primitive(const Primitive *prim);
 
@@ -48,7 +64,7 @@ void free_string(char *s);
 
 char *hash_password(const char *password);
 
-char *migrate_hash(const char *hash);
+HashUpdateFfi *migrate_hash(const char *hash);
 
 Primitive *new_argon2i(unsigned int passes, unsigned int lanes, unsigned int kib);
 
@@ -60,6 +76,6 @@ char *read_password(const char *prompt);
 
 bool verify_password(const char *hash, const char *password);
 
-bool verify_password_update_hash_in_place(const char *hash, const char *password, char **new_hash);
+HashUpdateFfi *verify_password_update_hash(const char *hash, const char *password);
 
 } // extern "C"

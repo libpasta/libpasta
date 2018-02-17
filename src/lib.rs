@@ -222,16 +222,30 @@ pub fn verify_password_safe(hash: &str, password: &str) -> Result<bool> {
     Ok(pwd_hash.verify(password))
 }
 
+/// On migrating a hash with the password entered, we reach three possible
+/// states:
+///   - Password verified, and the hash was migrated
+///   - Password verified, but the hash did not need to be migrated
+///   - Incorrect password (or other verification failure)
+#[derive(Debug, PartialEq)]
+pub enum HashUpdate {
+    /// Password verification succeeded, with new string if migration was
+    /// performed
+    Verified(Option<String>),
+    /// Password verification failed
+    Failed,
+}
+
 /// Verifies a supplied password against a previously computed password hash,
 /// and performs an in-place update of the hash value if the password verifies.
 /// Hence this needs to take a mutable `String` reference.
-pub fn verify_password_update_hash(hash: &mut String, password: &str) -> bool {
+pub fn verify_password_update_hash(hash: &str, password: &str) -> HashUpdate {
     config::DEFAULT_CONFIG.verify_password_update_hash(hash, password)
 }
 
 /// Same as `verify_password_update_hash`, but returns `Result` to allow error handling.
 #[doc(hidden)]
-pub fn verify_password_update_hash_safe(hash: &mut String, password: &str) -> Result<bool> {
+pub fn verify_password_update_hash_safe(hash: &str, password: &str) -> Result<HashUpdate> {
     config::DEFAULT_CONFIG.verify_password_update_hash_safe(hash, password)
 
 }
@@ -245,13 +259,13 @@ pub fn verify_password_update_hash_safe(hash: &mut String, password: &str) -> Re
 ///
 /// If the password is also available, the `verify_password_update_hash` should
 /// instead be used.
-pub fn migrate_hash(hash: &mut String) {
+pub fn migrate_hash(hash: &str) -> Option<String> {
     config::DEFAULT_CONFIG.migrate_hash(hash)
 }
 
 /// Same as `migrate_hash` but returns `Result` to allow error handling.
 #[doc(hidden)]
-pub fn migrate_hash_safe(hash: &mut String) -> Result<()> {
+pub fn migrate_hash_safe(hash: &str) -> Result<Option<String>> {
     config::DEFAULT_CONFIG.migrate_hash_safe(hash)
 
 }
@@ -368,21 +382,22 @@ mod api_tests {
         let params = Algorithm::Single(Bcrypt::default());
         let mut hash = serde_mcf::to_string(&params.hash(&password)).unwrap();
         println!("Original: {:?}", hash);
-        migrate_hash(&mut hash);
+        if let Some(new_hash) = migrate_hash(&hash) {
+            hash = new_hash;
+        }
         println!("Migrated: {:?}", hash);
-
-        let password = "hunter2";
         assert!(verify_password(&hash, password));
 
-        let password = "hunter2";
-        assert!(verify_password_update_hash(&mut hash, password));
-        println!("Updated: {:?}", hash);
-
-
-        let password = "hunter2";
-        let mut pwd_hash: Output = serde_mcf::from_str(&hash).unwrap();
-        pwd_hash.alg = Algorithm::default();
-        assert!(pwd_hash.verify(&password));
+        if let HashUpdate::Verified(Some(new_hash)) = verify_password_update_hash(&hash, password) {
+            let mut pwd_hash: Output = serde_mcf::from_str(&new_hash).unwrap();
+            // Note, this is not the intended way to use these structs, but just
+            // a sanity check to make sure the new algorithm is _actually_ the
+            // supposed default.
+            pwd_hash.alg = Algorithm::default();
+            assert!(pwd_hash.verify(&password));
+        } else {
+            assert!(false, "hash was not verified/migrated");
+        }
     }
 
     #[test]
@@ -419,8 +434,24 @@ mod api_tests {
 
     #[test]
     fn migrate_hash_ok() {
-        let mut hash = "$2a$10$175ikf/E6E.73e83.fJRbODnYWBwmfS0ENdzUBZbedUNGO.99wJfa".to_owned();
-        migrate_hash(&mut hash);
+        let hash = "$2a$10$175ikf/E6E.73e83.fJRbODnYWBwmfS0ENdzUBZbedUNGO.99wJfa".to_owned();
+        let new_hash = migrate_hash(&hash).unwrap();
+        assert!(new_hash != hash);
+        assert!(migrate_hash(&new_hash).is_none());
+    }
+
+    #[test]
+    fn vpuh_ok() {
+        let password = "hunter2";
+        let cfg = Config::with_primitive(Bcrypt::default());
+        let hash = cfg.hash_password(password);
+        let res = verify_password_update_hash(&hash, "hunter2");
+        let hash = match res {
+            HashUpdate::Verified(Some(x)) => x,
+            _ => panic!("should have migrated"),
+        };
+        assert_eq!(verify_password_update_hash(&hash, "hunter2"), HashUpdate::Verified(None));
+        assert_eq!(verify_password_update_hash(&hash, "*******"), HashUpdate::Failed);
     }
 
     #[test]

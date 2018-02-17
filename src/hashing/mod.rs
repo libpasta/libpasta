@@ -6,6 +6,7 @@
 //! recursive structure, containing either a single `Primitive`, or a
 //! `Primitive` and a further layer of `Algorithm`. This is the hashing onion.
 
+use std::cmp::Ordering;
 use std::default::Default;
 
 use config;
@@ -100,7 +101,15 @@ impl Algorithm {
 
         match *self {
             Algorithm::Single(ref a2) |
-            Algorithm::Nested { outer: ref a2, .. } => a2.ge(default),
+            // Note: here we only decide to migrate if default is not <= a2
+            // This includes the case that they are incomparable
+            Algorithm::Nested { outer: ref a2, .. } => {
+                match a2.partial_cmp(default) {
+                    Some(Ordering::Greater) | Some(Ordering::Equal) => false,
+                    _ => true,
+                }
+            }
+
         }
     }
 
