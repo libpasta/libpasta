@@ -230,7 +230,7 @@ impl Config {
     pub fn migrate_hash_safe(&self, hash: &str) -> Result<Option<String>> {
         let pwd_hash: Output = serde_mcf::from_str(hash)?;
 
-        if !pwd_hash.alg.needs_migrating() {
+        if !pwd_hash.alg.needs_migrating(&self.primitive) {
             // no need to migrate
             return Ok(None);
         }

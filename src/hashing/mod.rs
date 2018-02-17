@@ -96,15 +96,13 @@ impl Algorithm {
     }
 
     /// Test whether the current 'Algorithm` is sufficiently secure.
-    pub fn needs_migrating(&self) -> bool {
-        let default: &Primitive = &*config::DEFAULT_PRIM;
-
+    pub fn needs_migrating(&self, prim: &Primitive) -> bool {
         match *self {
             Algorithm::Single(ref a2) |
             // Note: here we only decide to migrate if default is not <= a2
             // This includes the case that they are incomparable
             Algorithm::Nested { outer: ref a2, .. } => {
-                match a2.partial_cmp(default) {
+                match a2.partial_cmp(prim) {
                     Some(Ordering::Greater) | Some(Ordering::Equal) => false,
                     _ => true,
                 }
