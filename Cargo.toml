@@ -14,7 +14,7 @@ argon2rs = "0.2"
 cargon = "0.0.1"
 data-encoding = "2.0.0"
 error-chain = "0.11.0"
-fastpbkdf2 = "0.1"
+fastpbkdf2 = { version = "0.1", optional = true }
 itertools = "0.7"
 lazy_static = "1.0"
 log = "0.4"
