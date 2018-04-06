@@ -1,8 +1,12 @@
-/// Native Rust implementation of scrypt.
+#[cfg(feature = "fastpbkdf2")]
 pub use self::fastpbkdf2::Pbkdf2;
+
+#[cfg(not(feature = "fastpbkdf2"))]
+pub use self::ring_pbkdf2::Pbkdf2 as Pbkdf2;
+
 pub use self::ring_pbkdf2::Pbkdf2 as RingPbkdf2;
 
-/// Native Rust implementation of scrypt.
+/// Native Rust implementation of PBKDF2.
 mod ring_pbkdf2 {
     use primitives::{Primitive, PrimitiveImpl};
     use sod::Sod;
@@ -84,7 +88,8 @@ mod ring_pbkdf2 {
 }
 
 
-/// Native Rust implementation of scrypt.
+/// C implementation of PBKDF2.
+#[cfg(feature = "fastpbkdf2")]
 mod fastpbkdf2 {
     extern crate fastpbkdf2;
     use self::fastpbkdf2::*;
