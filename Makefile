@@ -3,6 +3,7 @@ VERSION = 0.1.0-rc1
 all: libpasta.so libpasta.a
 
 clean:
+	cargo clean --manifest-path libpasta-capi/Cargo.toml
 	rm -rf build/
 
 force:
@@ -11,7 +12,7 @@ force:
 	make all
 
 libpasta: Cargo.toml libpasta-capi/Cargo.toml
-	cargo build --release --manifest-path libpasta-capi/Cargo.toml
+	RUSTFLAGS="--print native-static-libs" cargo build --release --manifest-path libpasta-capi/Cargo.toml
 
 libpasta.%: libpasta
 	mkdir -p build

@@ -36,9 +36,13 @@ struct HashUpdateFfi {
 
 extern "C" {
 
+void config_free(Config *config);
+
 char *config_hash_password(const Config *config, const char *password);
 
 HashUpdateFfi *config_migrate_hash(const Config *config, const char *hash);
+
+Config *config_new();
 
 bool config_verify_password(const Config *config, const char *hash, const char *password);
 
@@ -55,8 +59,6 @@ Primitive *default_bcrypt();
 Primitive *default_pbkdf2i();
 
 Primitive *default_scrypt();
-
-void free_Config(Config *config);
 
 void free_Primitive(Primitive *prim);
 
