@@ -1,6 +1,6 @@
 [package]
 name = "libpasta"
-version = "0.1.0-rc0"
+version = "0.1.0-rc1"
 authors = ["Sam Scott <me@samjs.co.uk>"]
 categories = ["authentication", "cryptography"]
 description = "All-inclusive password hashing library"
@@ -11,10 +11,8 @@ repository = "https://github.com/libpasta/libpasta"
 
 [dependencies]
 argon2rs = "0.2"
-cargon = "0.0.1"
 data-encoding = "2.0.0"
 error-chain = "0.11.0"
-fastpbkdf2 = "0.1"
 itertools = "0.7"
 lazy_static = "1.0"
 log = "0.4"
@@ -23,7 +21,7 @@ ring-pwhash = ">= 0.11, < 0.13"
 rpassword = "2.0"
 rust-crypto = "0.2"
 serde = "1.0.2"
-serde_derive = "1.0.4"
+serde_derive = "1.0"
 serde_mcf = "0.1.3"
 serde_yaml = "0.7"
 
@@ -33,6 +31,7 @@ default-features = false
 features = []
 
 [dev-dependencies]
+cargon = "0.0.1"
 env_logger = "0.5"
 time = "0.1.36"
 

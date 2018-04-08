@@ -15,11 +15,11 @@ macro_rules! benches {
 
             #[bench]
             fn short(b: &mut Bencher) {
-                let password = "hunter2*********".to_owned();
+                let password = "hunter2*********";
                 let alg = Algorithm::Single(<$params>::default().into());
                 println!("Bench params: {:?}", alg);
                 b.iter(|| {
-                    alg.hash(password.clone().into())
+                    alg.hash(password)
                 })
             }
 
@@ -30,7 +30,7 @@ macro_rules! benches {
                 let alg = Algorithm::Single(<$params>::default().into());
                 println!("Bench params: {:?}", alg);
                 b.iter(|| {
-                    alg.hash(password.clone().into())
+                    alg.hash(&password)
                 })
             }
         }
