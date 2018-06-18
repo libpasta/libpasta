@@ -94,7 +94,6 @@
     unused_unsafe,
     unused_variables,
     variant_size_differences,
-    warnings,
     while_true,
 )]
 // Necessary for having benchmarks defined inline.
