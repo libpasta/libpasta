@@ -47,13 +47,13 @@ impl<T: ?Sized> Clone for Sod<T> {
 }
 
 impl<T: PartialEq + ?Sized> PartialEq<Sod<T>> for Sod<T> {
-    fn eq(&self, other: &Sod<T>) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.deref().eq(other.deref())
     }
 }
 
 impl<T: PartialOrd + ?Sized> PartialOrd<Sod<T>> for Sod<T> {
-    fn partial_cmp(&self, other: &Sod<T>) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.deref().partial_cmp(other.deref())
     }
 }

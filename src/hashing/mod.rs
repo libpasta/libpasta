@@ -67,7 +67,7 @@ impl Algorithm {
         let output = self.hash_with_salt(password.as_bytes(), &salt);
         Output {
             hash: output,
-            salt: salt,
+            salt,
             alg: self.clone(),
         }
     }
@@ -114,7 +114,7 @@ impl Algorithm {
     /// Copies `self` into a new `Algorithm` wrapped by `outer`
     pub fn to_wrapped(&self, outer: Primitive) -> Self {
         Algorithm::Nested {
-            outer: outer,
+            outer,
             inner: Box::new(self.clone()),
         }
     }
@@ -122,7 +122,7 @@ impl Algorithm {
     /// Moves `self` into a new `Algorithm` wrapped by `outer`
     pub fn into_wrapped(self, outer: Primitive) -> Self {
         Algorithm::Nested {
-            outer: outer,
+            outer,
             inner: Box::new(self),
         }
     }

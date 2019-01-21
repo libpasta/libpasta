@@ -3,12 +3,8 @@ pub use self::native::Scrypt;
 
 /// Native Rust implementation of scrypt.
 mod native {
-    #![allow(cast_possible_truncation)]
-
     use primitives::Primitive;
     use sod::Sod;
-
-    use ring_pwhash::scrypt;
     use serde_mcf::Hashes;
 
     use std::fmt;
@@ -34,7 +30,7 @@ mod native {
         /// Compute the scrypt hash
         fn compute<'a>(&'a self, password: &[u8], salt: &[u8]) -> Vec<u8> {
             let mut hash = [0_u8; 32];
-            scrypt::scrypt(password, salt, &self.params, &mut hash);
+            scrypt::scrypt(password, salt, &self.params, &mut hash).expect("scrypt failed");
             hash[..32].to_vec()
         }
 
@@ -68,7 +64,7 @@ mod native {
         fn new_impl(log_n: u8, r: u32, p: u32) -> Self {
             Self {
                 log_n, r, p,
-                params: scrypt::ScryptParams::new(log_n, r, p),
+                params: scrypt::ScryptParams::new(log_n, r, p).expect("invalid scrypt parameters"),
             }
         }
 
@@ -96,8 +92,8 @@ mod test {
         assert_eq!(hash, hash2);
         let out = Output {
             alg: Algorithm::Single(params.into()),
-            salt: salt,
-            hash: hash,
+            salt,
+            hash,
         };
         println!("{:?}", serde_mcf::to_string(&out).unwrap());
     }

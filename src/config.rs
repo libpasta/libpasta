@@ -100,7 +100,7 @@ impl Config {
     pub fn with_primitive(primitive: Primitive) -> Self {
         Self {
             algorithm: Algorithm::Single(primitive.clone()),
-            primitive: primitive,
+            primitive,
             keyed: None,
             keys: key::get_global(),
         }
@@ -178,11 +178,11 @@ impl Config {
     pub fn verify_password_update_hash_safe(&self, hash: &str, password: &str) -> Result<HashUpdate> {
         let pwd_hash: Output = serde_mcf::from_str(hash)?;
         if pwd_hash.verify(password) {
-            if pwd_hash.alg != self.algorithm {
+            if pwd_hash.alg == self.algorithm {
+                Ok(HashUpdate::Verified(None))
+            } else {
                 let new_hash = serde_mcf::to_string(&self.algorithm.hash(password))?;
                 Ok(HashUpdate::Verified(Some(new_hash)))
-            } else {
-                Ok(HashUpdate::Verified(None))
             }
         } else {
             Ok(HashUpdate::Failed)

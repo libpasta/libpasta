@@ -11,6 +11,7 @@ mod ring_pbkdf2 {
     use serde_mcf::Hashes;
 
     use std::fmt;
+    use std::num::NonZeroU32;
     use std::sync::Arc;
 
     use super::super::hash_to_id;
@@ -19,7 +20,7 @@ mod ring_pbkdf2 {
     ///
     /// This implementation is backed by `ring`.
     pub struct Pbkdf2 {
-        iterations: u32,
+        iterations: NonZeroU32,
         algorithm: &'static digest::Algorithm,
     }
 
@@ -37,8 +38,8 @@ mod ring_pbkdf2 {
 
         fn new_impl(iterations: u32, algorithm: &'static digest::Algorithm) -> Self {
             Self {
-                iterations: iterations,
-                algorithm: algorithm,
+                iterations: NonZeroU32::new(iterations).expect("iterations must be greater than 0"),
+                algorithm,
             }
         }
     }
@@ -130,21 +131,21 @@ mod fastpbkdf2 {
             match hash_to_id(algorithm).as_ref() {
                 "SHA1" => {
                     Self {
-                        iterations: iterations,
+                        iterations,
                         algorithm: pbkdf2_hmac_sha1,
                         alg_id: "SHA1",
                     }
                 }
                 "SHA256" => {
                     Self {
-                        iterations: iterations,
+                        iterations,
                         algorithm: pbkdf2_hmac_sha256,
                         alg_id: "SHA256",
                     }
                 }
                 "SHA512" => {
                     Self {
-                        iterations: iterations,
+                        iterations,
                         algorithm: pbkdf2_hmac_sha512,
                         alg_id: "SHA512",
                     }
@@ -206,8 +207,8 @@ mod test {
         assert_eq!(hash, hash2);
         let out = Output {
             alg: Algorithm::Single(params.into()),
-            salt: salt,
-            hash: hash,
+            salt,
+            hash,
         };
         println!("{:?}", serde_mcf::to_string(&out).unwrap());
     }
@@ -223,8 +224,8 @@ mod test {
         assert_eq!(hash, hash2);
         let out = Output {
             alg: Algorithm::Single(params.into()),
-            salt: salt,
-            hash: hash,
+            salt,
+            hash,
         };
         println!("{:?}", serde_mcf::to_string(&out).unwrap());
     }

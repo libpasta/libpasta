@@ -1,42 +1,39 @@
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdlib>
 
-/**
- * Holds possible configuration options
- * See the [module level documentation](index.html) for more information.
- */
-typedef struct Config Config;
+/// Holds possible configuration options
+/// See the [module level documentation](index.html) for more information.
+struct Config;
 
-/**
- * Password hashing primitives
- * Each variant is backed up by different implementation.
- * Internally, primitives can either be static values, for example,
- * the `lazy_static` generated value `DEFAULT_PRIM`, or dynamically allocated
- * variables, which are `Arc<Box<...>>`.
- * Most operations are expected to be performed using the static functions,
- * since most use the default algorithms. However, the flexibilty to support
- * arbitrary parameter sets is essential.
- */
-typedef struct Primitive Primitive;
+/// Password hashing primitives
+/// Each variant is backed up by different implementation.
+/// Internally, primitives can either be static values, for example,
+/// the `lazy_static` generated value `DEFAULT_PRIM`, or dynamically allocated
+/// variables, which are `Arc<Box<...>>`.
+/// Most operations are expected to be performed using the static functions,
+/// since most use the default algorithms. However, the flexibilty to support
+/// arbitrary parameter sets is essential.
+struct Primitive;
 
-typedef enum {
-  Updated,
-  Ok,
-  Failed,
-} HashUpdateFfi_Tag;
+struct HashUpdateFfi {
+  enum class Tag {
+    Updated,
+    Ok,
+    Failed,
+  };
 
-typedef struct {
-  char *_0;
-} Updated_Body;
+  struct Updated_Body {
+    char *_0;
+  };
 
-typedef struct {
-  HashUpdateFfi_Tag tag;
+  Tag tag;
   union {
     Updated_Body updated;
   };
-} HashUpdateFfi;
+};
+
+extern "C" {
 
 char *config_hash_password(const Config *config, const char *password);
 
@@ -50,13 +47,13 @@ HashUpdateFfi *config_verify_password_update_hash(const Config *config,
 
 Config *config_with_primitive(const Primitive *prim);
 
-Primitive *default_argon2i(void);
+Primitive *default_argon2i();
 
-Primitive *default_bcrypt(void);
+Primitive *default_bcrypt();
 
-Primitive *default_pbkdf2i(void);
+Primitive *default_pbkdf2i();
 
-Primitive *default_scrypt(void);
+Primitive *default_scrypt();
 
 void free_Config(Config *config);
 
@@ -79,3 +76,5 @@ char *read_password(const char *prompt);
 bool verify_password(const char *hash, const char *password);
 
 HashUpdateFfi *verify_password_update_hash(const char *hash, const char *password);
+
+} // extern "C"

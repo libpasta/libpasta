@@ -25,6 +25,6 @@ uninstall:
 	sudo rm /usr/lib/libpasta.so.$(VERSION)
 
 test:
-	cd libpasta-capi/ctest && sh compile.sh && LD_LIBRARY_PATH=../target/release ./test
+	cd libpasta-capi/ctest && sh compile.sh && LD_LIBRARY_PATH=../target/release ./test_c && LD_LIBRARY_PATH=../target/release ./test_cpp
 
 .PHONY: clean uninstall

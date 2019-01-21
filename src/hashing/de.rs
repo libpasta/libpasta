@@ -114,7 +114,6 @@ impl<'de> Visitor<'de> for OutputVisitor {
                 let fields: BcryptFields = map.next_value()?;
                 let prim = ::primitives::Bcrypt::new(fields.cost);
                 if prim == ::primitives::Poisoned.into() {
-                    #[allow(use_debug)]
                     return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
                 }
                 Ok(Output {
@@ -128,7 +127,6 @@ impl<'de> Visitor<'de> for OutputVisitor {
                 let fields: McfFields = map.next_value()?;
                 let prim = ::primitives::Primitive::from((&var, &fields.params));
                 if prim == ::primitives::Poisoned.into() {
-                    #[allow(use_debug)]
                     return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
                 }
                 Ok(Output {
@@ -145,7 +143,6 @@ impl<'de> Visitor<'de> for OutputVisitor {
                         let prim = ::primitives::Primitive::from((&output.algorithm,
                                                                   &output.parameters));
                         if prim == ::primitives::Poisoned.into() {
-                            #[allow(use_debug)]
                             return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
                         }
                         Ok(Output {
@@ -163,7 +160,6 @@ impl<'de> Visitor<'de> for OutputVisitor {
                         let prim = ::primitives::Primitive::from((&fields.outer_id,
                                                                   &fields.outer_params));
                         if prim == ::primitives::Poisoned.into() {
-                            #[allow(use_debug)]
                             return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
                         }
                         Ok(Output {
@@ -205,12 +201,12 @@ impl<'de> Visitor<'de> for VariantVisitor {
     fn visit_borrowed_str<E>(self, val: &str) -> Result<Self::Value, E>
         where E: Error
     {
-        let var = match val {
+        let variant = match val {
             "" => SupportedVariants::Pasta(PastaVariants::Single),
             "!" => SupportedVariants::Pasta(PastaVariants::Nested),
-            var => {
-                let variant = Hashes::from_id(var).ok_or_else(|| {
-                        E::custom(format!("unknown MCF variant: {}", var))
+            other => {
+                let variant = Hashes::from_id(other).ok_or_else(|| {
+                        E::custom(format!("unknown MCF variant: {}", other))
                     })?;
 
                 match variant {
@@ -225,7 +221,7 @@ impl<'de> Visitor<'de> for VariantVisitor {
                 }
             }
         };
-        Ok(var)
+        Ok(variant)
     }
 }
 
@@ -242,7 +238,6 @@ impl<'de> Deserialize<'de> for Primitive {
         let prim = PrimitiveStruct::deserialize(deserializer)?;
         let prim = (&prim.id, &prim.params).into();
         if prim == ::primitives::Poisoned.into() {
-            #[allow(use_debug)]
             return Err(D::Error::custom("failed to deserialize"));
         }
         Ok(prim)

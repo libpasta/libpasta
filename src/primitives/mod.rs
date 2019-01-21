@@ -52,8 +52,6 @@ use sod::Sod;
 
 use config;
 
-use itertools::Itertools;
-use itertools::FoldWhile::{Continue, Done};
 use num_traits;
 use num_traits::FromPrimitive;
 use ring::{constant_time, digest};
@@ -144,14 +142,14 @@ impl PartialOrd<PrimitiveImpl> for PrimitiveImpl {
                 } else {
                     None
                 })
-                .fold_while(None, |acc, c| if acc.is_none() {
-                        Continue(c)
+                .try_fold(None, |acc, c| if acc.is_none() {
+                        Some(c)
                 } else if c == acc || c == Some(Ordering::Equal) {
-                        Continue(acc)
+                        Some(acc)
                 } else {
-                        Done(None)
+                        None
                 })
-                .into_inner()
+                .unwrap_or(None)
         } else {
             None
         }
@@ -269,7 +267,6 @@ impl<'a> From<&'a Primitive> for (Hashes, Map<String, Value>) {
 
 fn hash_to_id(algorithm: &'static digest::Algorithm) -> String {
     let mut name = String::new();
-    #[allow(use_debug)]
     write!(&mut name, "{:?}", algorithm).expect("error writing to String");
     name
 }

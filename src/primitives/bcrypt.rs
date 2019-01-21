@@ -1,8 +1,6 @@
 pub use self::native::Bcrypt;
 
 mod native {
-    #![allow(shadow_reuse)]
-
     extern crate crypto;
     use self::crypto::bcrypt::bcrypt;
 
@@ -69,7 +67,7 @@ mod native {
         }
 
         fn new_impl(cost: u32) -> Self {
-            Self { cost: cost }
+            Self { cost }
         }
 
         /// Get the default `Bcrypt` parameter set.
@@ -97,8 +95,8 @@ mod bcrypt_test {
         assert_eq!(hash, hash2);
         let out = Output {
             alg: Algorithm::Single(params.into()),
-            salt: salt,
-            hash: hash,
+            salt,
+            hash,
         };
         println!("{:?}", mcf::to_string(&out).unwrap());
     }

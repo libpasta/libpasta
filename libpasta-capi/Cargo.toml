@@ -1,17 +1,17 @@
 [package]
 name = "pasta"
-version = "0.1.0-rc0"
+version = "0.1.0"
 authors = ["Sam Scott <sam.scott89@gmail.com>"]
 build = "build.rs"
 
 
 [dependencies]
 libc = "0.2"
-libpasta = { version = "0.1.0-rc0", path = ".." }
+libpasta = { version = "0.1.0", path = ".." }
 rpassword = "2.0"
 
 [build-dependencies]
-cbindgen = "0.4"
+cbindgen = "0.6"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

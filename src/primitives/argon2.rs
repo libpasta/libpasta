@@ -89,8 +89,8 @@ mod test {
         assert_eq!(hash, hash2);
         let out = Output {
             alg: Algorithm::Single(params.into()),
-            salt: salt,
-            hash: hash,
+            salt,
+            hash,
         };
         println!("{:?}", serde_mcf::to_string(&out).unwrap());
     }
@@ -108,7 +108,7 @@ mod test {
         assert_eq!(serde_mcf::from_str::<Output>(encoded).unwrap().hash, hash);
         let output = Output {
             alg: Algorithm::Single(alg.into()),
-            hash: hash,
+            hash,
             salt: salt.as_bytes().to_vec(),
         };
         assert_eq!(&serde_mcf::to_string(&output).unwrap()[1..], encoded);

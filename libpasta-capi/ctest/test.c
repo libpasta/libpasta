@@ -16,9 +16,9 @@ void test_migrate() {
     char *hash;
     HashUpdateFfi *res = migrate_hash(old_hash);
     switch(res->tag) {
-        case HashUpdateFfi::Tag::Updated: hash = res->updated._0; break;
-        case HashUpdateFfi::Tag::Ok: assert (false && "Expected a password migration");
-        case HashUpdateFfi::Tag::Failed: assert (false && "Problem migrating password");
+        case Updated: hash = res->updated._0; break;
+        case Ok: assert (false && "Expected a password migration");
+        case Failed: assert (false && "Problem migrating password");
     }
     assert (strcmp(old_hash, hash) != 0);
     printf("New hash: %s\n", hash);
@@ -28,9 +28,9 @@ void test_migrate() {
     char *newhash;
     res = verify_password_update_hash(hash, "my password");
     switch(res->tag) {
-        case HashUpdateFfi::Tag::Updated: newhash = res->updated._0;
-        case HashUpdateFfi::Tag::Ok: printf("Password verified\n"); break;
-        case HashUpdateFfi::Tag::Failed: assert (false && "Password failed");
+        case Updated: newhash = res->updated._0;
+        case Ok: printf("Password verified\n"); break;
+        case Failed: assert (false && "Password failed");
     }
     printf("New hash: %s\n", newhash);
     assert (strcmp(newhash, hash) != 0);
@@ -38,7 +38,7 @@ void test_migrate() {
     // free_string(hash) // dont need to free this since it's static
     free_string(newhash);
 
-    assert (verify_password_update_hash(hash, "not my password")->tag == HashUpdateFfi::Tag::Failed);
+    assert (verify_password_update_hash(hash, "not my password")->tag == Failed);
 }
 
 void test_config() {
@@ -58,6 +58,6 @@ int main(void) {
     test_migrate();
     test_config();
     test_edge_cases();
-    printf("\x1b[1;32mC++ test passed\x1b[m\n");
+    printf("\x1b[1;32mC test passed\x1b[m\n");
     return 0;
 }

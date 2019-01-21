@@ -26,7 +26,7 @@ mod hmac_ring {
         /// Construct a new `Hmac` instance with a specified key identifier
         pub fn with_key_id(h: &'static digest::Algorithm, key_id: &str) -> Primitive {
             Self {
-                h: h,
+                h,
                 key: key::get_global().get_key(key_id).map(|k| hmac::SigningKey::new(h, &k)),
                 key_id: key_id.to_string(),
             }.into()
@@ -46,7 +46,7 @@ mod hmac_ring {
             Self {
                 h: &digest::SHA256,
                 key: Some(key),
-                key_id: key_id,
+                key_id,
             }
         }
     }
@@ -112,8 +112,8 @@ mod test {
         assert_eq!(hash, hash2);
         let out = Output {
             alg: params,
-            salt: salt,
-            hash: hash,
+            salt,
+            hash,
         };
         println!("{:?}", serde_mcf::to_string(&out).unwrap());
     }

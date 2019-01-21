@@ -47,13 +47,12 @@
 
 
 #![allow(unknown_lints)]
-#![deny(clippy_pedantic)]
+#![deny(clippy::pedantic)]
 #![allow(
-    missing_docs_in_private_items, 
+    clippy::missing_docs_in_private_items, 
     // we use fn new() -> Primitive for convenience
-    new_ret_no_self, 
-    range_plus_one, // `..=end` not yet stable
-    use_debug,
+    clippy::new_ret_no_self, 
+    clippy::range_plus_one, // `..=end` not yet stable
 )]
 #![deny(
     const_err,
@@ -71,10 +70,7 @@
     overflowing_literals,
     path_statements,
     plugin_as_library,
-    private_no_mangle_fns,
-    private_no_mangle_statics,
     stable_features,
-    trivial_casts,
     trivial_numeric_casts,
     unconditional_recursion,
     unknown_crate_types,
@@ -105,17 +101,14 @@
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
-extern crate itertools;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate num_traits;
 extern crate ring;
-extern crate ring_pwhash;
-extern crate serde;
 #[macro_use]
-extern crate serde_derive;
+extern crate serde;
 extern crate serde_mcf;
 extern crate serde_yaml;
 
@@ -126,6 +119,7 @@ pub mod rpassword {
 }
 
 /// `libpasta` errors.
+#[allow(deprecated)]
 pub mod errors {
     use ring;
     use serde_mcf;
@@ -150,7 +144,7 @@ pub mod errors {
     impl<T, E: fmt::Debug> ExpectReport for result::Result<T, E>  {
         type Inner = T;
         fn expect_report(self, msg: &str) -> T  {
-            self.expect(&format!("{}\nIf you are seeing this message, you have encountered \
+            self.unwrap_or_else(|_| panic!("{}\nIf you are seeing this message, you have encountered \
                 a situation we did not think was possible. Please submit a bug \
                 report at https://github.com/libpasta/libpasta/issues with this message.\n", msg))
         }
@@ -159,7 +153,7 @@ pub mod errors {
     impl<T> ExpectReport for Option<T>  {
         type Inner = T;
         fn expect_report(self, msg: &str) -> T  {
-            self.expect(&format!("{}\nIf you are seeing this message, you have encountered\
+            self.unwrap_or_else(|| panic!("{}\nIf you are seeing this message, you have encountered\
                 a situation we did not think was possible. Please submit a bug\
                 report at https://github.com/libpasta/libpasta/issues with this message.\n", msg))
         }
@@ -294,7 +288,6 @@ mod api_tests {
     use config::DEFAULT_PRIM;
     use hashing::{Algorithm, Output};
     use primitives::{Bcrypt, Hmac};
-    use sod::Sod;
 
     #[test]
     fn sanity_check() {
@@ -461,39 +454,5 @@ mod api_tests {
         let alg = Algorithm::Single(Bcrypt::default()).into_wrapped(Hmac::default().into());
         let hash = serde_mcf::to_string(&alg.hash(&password)).unwrap();
         assert!(verify_password(&hash, password));
-    }
-
-    use std::result;
-    use std::marker::{Send, Sync};
-
-    struct NoRandomness;
-    static NO_RAND_REF: &'static (SecureRandom + Send + Sync) = &NoRandomness;
-    impl SecureRandom for NoRandomness {
-        fn fill(&self, _dest: &mut [u8]) -> result::Result<(), ring::error::Unspecified> {
-            Err(ring::error::Unspecified)
-        }
-    }
-
-    #[test]
-    fn no_randomness_ok() {
-        use std::mem;
-
-        // Using a broken PRNG still results in distinct salts
-        let salt1 = ::gen_salt(&NoRandomness);
-        let salt2 = ::gen_salt(&NoRandomness);
-        assert!(salt1 != salt2);
-
-
-        #[allow(unsafe_code)]
-        unsafe {
-            // We break the PRNG by replacing it with one which always fails!
-            let rng = mem::transmute::<*const Sod<SecureRandom + Send + Sync>, *mut Sod<SecureRandom + Send + Sync>>(&*config::RANDOMNESS_SOURCE);
-            *rng = Sod::Static(NO_RAND_REF);
-        }
-
-        // Yet two passwords differ
-        let hash1 = hash_password("hunter2");
-        let hash2 = hash_password("hunter2");
-        assert!(hash1 != hash2);
     }
 }
