@@ -43,9 +43,6 @@
 //! `libpasta` attempts to support some legacy formats. For example, the `bcrypt`
 //! format `$2y$...`.
 
-#![cfg_attr(all(feature="bench", test), feature(test))]
-
-
 #![allow(unknown_lints)]
 #![deny(clippy::pedantic)]
 #![allow(
@@ -93,9 +90,10 @@
     unused_unsafe,
     unused_variables,
     variant_size_differences,
-    warnings,
     while_true,
 )]
+// Necessary for having benchmarks defined inline.
+#![cfg_attr(all(feature="bench", test), feature(test))]
 #![cfg_attr(all(feature="bench", test), allow(unstable_features))]
 
 extern crate data_encoding;
@@ -332,9 +330,11 @@ mod api_tests {
     fn nested_hash() {
         let password = "hunter2";
 
+        let fast_prim = Bcrypt::new(5);
+
         let params = Algorithm::Nested {
-            inner: Box::new(Algorithm::default()),
-            outer: DEFAULT_PRIM.clone(),
+            inner: Box::new(Algorithm::Single(fast_prim.clone())),
+            outer: fast_prim.clone(),
         };
         let hash = params.hash(&password);
 
@@ -372,7 +372,7 @@ mod api_tests {
     fn migrate() {
         let password = "hunter2";
 
-        let params = Algorithm::Single(Bcrypt::default());
+        let params = Algorithm::Single(Bcrypt::new(5));
         let mut hash = serde_mcf::to_string(&params.hash(&password)).unwrap();
         println!("Original: {:?}", hash);
         if let Some(new_hash) = migrate_hash(&hash) {

@@ -4,7 +4,7 @@ cache: cargo
 dist: trusty
 os: 
   - linux
-  # - osx
+  - osx
 
 # Run builds for all the supported trains
 rust:
@@ -12,19 +12,19 @@ rust:
   - beta
   - nightly
 
-sudo: true
 
-env:
-  global:
-  - RUSTFLAGS="-C link-dead-code"
-
-before_install:
-  - sudo apt-get update
-
-addons:
-  apt:
-    packages:
-      - libssl-dev
+matrix:
+  include:
+    - rust: stable
+      os: linux
+      sudo: true
+      env: SKIPTEST=true RUSTFLAGS="-C link-dead-code"
+      before_install:
+        - sudo apt-get update
+      addons:
+        apt:
+          packages:
+            - libssl-dev
 
 # Add clippy
 before_script:
@@ -36,18 +36,21 @@ before_script:
 
 # The main build
 script:
-  - cargo build
-  - cargo test
+  - |
+      if [[ -z $SKIPTEST ]]; then
+        cargo build
+        cargo test
+        make test
+      fi
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
         cargo clippy
       fi
-  - make test
 
 # Coverage report
 after_success:
   - |
-      if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+      if [[ "$TRAVIS_RUST_VERSION" == "stable" && "$TRAVIS_OS_NAME" = linux ]]; then
         bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
         # Uncomment the following line for coveralls.io
         # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID

@@ -75,6 +75,15 @@ pub extern fn hash_password(password: *const c_char) -> *mut c_char {
     CString::new(output).unwrap().into_raw()
 }
 
+#[no_mangle]
+pub extern "C" fn config_new() -> *mut Config {
+    box_ptr!(Config::default())
+}
+
+#[no_mangle]
+pub extern "C" fn config_free(config: *mut Config) {
+    let _config   = unsafe { ffi_ref!(config) };
+}
 
 #[no_mangle]
 pub extern "C" fn config_hash_password(config: *const Config, password: *const c_char) -> *mut c_char {
@@ -183,11 +192,6 @@ pub extern "C" fn free_Primitive(prim: *mut Primitive) {
     let _prim = unsafe { ffi_ref!(prim) };
 }
 
-#[no_mangle]
-pub extern "C" fn free_Config(config: *mut Config) {
-    let _config = unsafe { ffi_ref!(config) };
-
-}
 
 #[cfg(test)]
 mod test {

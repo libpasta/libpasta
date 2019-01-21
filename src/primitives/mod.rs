@@ -39,7 +39,7 @@ pub use self::hmac::Hmac;
 /// Implementations are from both `ring` and the C `fastpbkdf2` implementations.
 /// The latter is currently in use.
 mod pbkdf2;
-pub use self::pbkdf2::{Pbkdf2, RingPbkdf2};
+pub use self::pbkdf2::Pbkdf2;
 
 /// `Scrypt` implementations.
 ///
