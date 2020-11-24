@@ -277,7 +277,7 @@ use ring::rand::SystemRandom;
 
 #[cfg(test)]
 fn get_salt() -> Vec<u8> {
-    gen_salt(&SystemRandom)
+    gen_salt(&SystemRandom::new())
 }
 
 #[cfg(test)]

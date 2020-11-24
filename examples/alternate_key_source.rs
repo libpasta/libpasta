@@ -2,7 +2,7 @@ extern crate libpasta;
 extern crate ring;
 
 use libpasta::key;
-use ring::digest;
+use ring::hkdf;
 
 #[derive(Debug)]
 struct StaticSource(&'static [u8; 16]);
@@ -25,7 +25,7 @@ fn main() {
     config.set_key_source(&STATIC_SOURCE);
 
     // Construct an HMAC instance and use this as the outer configuration
-    let keyed_function = libpasta::primitives::Hmac::with_key_id(&digest::SHA256, "StaticKey");
+    let keyed_function = libpasta::primitives::Hmac::with_key_id(hkdf::HKDF_SHA256, "StaticKey");
     config.set_keyed_hash(keyed_function);
 
     let hash = config.hash_password("hunter2");

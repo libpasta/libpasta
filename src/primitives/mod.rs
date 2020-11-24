@@ -54,12 +54,11 @@ use config;
 
 use num_traits;
 use num_traits::FromPrimitive;
-use ring::{constant_time, digest};
+use ring::{constant_time, hkdf};
 use serde_mcf::{Hashes, Map, Value};
 
 use std::cmp::Ordering;
 use std::fmt;
-use std::fmt::Write;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -221,12 +220,12 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
             ref x @ Hashes::Pbkdf2Sha256 |
             ref x @ Hashes::Pbkdf2Sha512 => {
                 let iterations = try_or_poisoned!(other.1.get("n").and_then(value_as_int));
-                match *x {
-                    Hashes::Pbkdf2Sha1 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA1),
-                    Hashes::Pbkdf2Sha256 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA256),
-                    Hashes::Pbkdf2Sha512 => pbkdf2::Pbkdf2::new(iterations, &digest::SHA512),
-                    _ => Poisoned.into() // not actually be possible due to previous matching,
-                }
+                pbkdf2::Pbkdf2::new(iterations, match *x {
+                    Hashes::Pbkdf2Sha1 => ring::pbkdf2::PBKDF2_HMAC_SHA1,
+                    Hashes::Pbkdf2Sha256 => ring::pbkdf2::PBKDF2_HMAC_SHA256,
+                    Hashes::Pbkdf2Sha512 => ring::pbkdf2::PBKDF2_HMAC_SHA512,
+                    _ => return Poisoned.into() // not actually possible due to previous matching,
+                })
             }
             Hashes::Scrypt => {
                 let log_n = try_or_poisoned!(other.1.get("ln").and_then(value_as_int));
@@ -265,19 +264,22 @@ impl<'a> From<&'a Primitive> for (Hashes, Map<String, Value>) {
     }
 }
 
-fn hash_to_id(algorithm: &'static digest::Algorithm) -> String {
-    let mut name = String::new();
-    write!(&mut name, "{:?}", algorithm).expect("error writing to String");
-    name
+fn hash_to_id(algorithm: hkdf::Algorithm) -> String {
+    match algorithm {
+        a if a == hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY => "SHA1",
+        a if a == hkdf::HKDF_SHA256 => "SHA256",
+        a if a == hkdf::HKDF_SHA384 => "SHA384",
+        a if a == hkdf::HKDF_SHA512 => "SHA512",
+        _ => panic!("Unknown digest algorithm"),
+    }.to_owned()
 }
 
-fn hash_from_id(id: &str) -> &'static digest::Algorithm {
+fn hash_from_id(id: &str) -> hkdf::Algorithm {
     match id {
-        "SHA1" => &digest::SHA1,
-        "SHA256" => &digest::SHA256,
-        "SHA384" => &digest::SHA384,
-        "SHA512" => &digest::SHA512,
-        "SHA512_256" => &digest::SHA512_256,
+        "SHA1" => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,
+        "SHA256" => hkdf::HKDF_SHA256,
+        "SHA384" => hkdf::HKDF_SHA384,
+        "SHA512" => hkdf::HKDF_SHA512,
         _ => panic!("Unknown digest algorithm"),
     }
 }

@@ -1,7 +1,7 @@
 extern crate libpasta;
 extern crate ring;
 
-use ring::digest;
+use ring::hkdf;
 
 #[test]
 fn test_hmac() {
@@ -13,7 +13,7 @@ fn test_hmac() {
     let key = b"yellow submarine";
     let key_id = config.add_key(key);
     // Construct an HMAC instance and use this as the outer configuration
-    let keyed_function = libpasta::primitives::Hmac::with_key_id(&digest::SHA256, &key_id);
+    let keyed_function = libpasta::primitives::Hmac::with_key_id(hkdf::HKDF_SHA256, &key_id);
     config.set_keyed_hash(keyed_function);
 
     let hash = config.hash_password("hunter2");

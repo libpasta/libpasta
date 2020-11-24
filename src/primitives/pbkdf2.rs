@@ -5,21 +5,19 @@ mod ring_pbkdf2 {
     use primitives::{Primitive, PrimitiveImpl};
     use sod::Sod;
 
-    use ring::{digest, pbkdf2};
+    use ring::pbkdf2;
     use serde_mcf::Hashes;
 
     use std::fmt;
     use std::num::NonZeroU32;
     use std::sync::Arc;
 
-    use super::super::hash_to_id;
-
     /// Struct holding `PBKDF2` parameters.
     ///
     /// This implementation is backed by `ring`.
     pub struct Pbkdf2 {
         iterations: NonZeroU32,
-        algorithm: &'static digest::Algorithm,
+        algorithm: pbkdf2::Algorithm,
     }
 
 
@@ -30,11 +28,11 @@ mod ring_pbkdf2 {
         }
 
         /// Create  a new PBKDF2 instance.
-        pub fn new(iterations: u32, algorithm: &'static digest::Algorithm) -> Primitive {
+        pub fn new(iterations: u32, algorithm: pbkdf2::Algorithm) -> Primitive {
             Self::new_impl(iterations, algorithm).into()
         }
 
-        fn new_impl(iterations: u32, algorithm: &'static digest::Algorithm) -> Self {
+        fn new_impl(iterations: u32, algorithm: pbkdf2::Algorithm) -> Self {
             Self {
                 iterations: NonZeroU32::new(iterations).expect("iterations must be greater than 0"),
                 algorithm,
@@ -44,7 +42,7 @@ mod ring_pbkdf2 {
 
     lazy_static! {
         static ref DEFAULT: Arc<Box<PrimitiveImpl>> = {
-            Arc::new(Box::new(Pbkdf2::new_impl(10_000, &digest::SHA256)))
+            Arc::new(Box::new(Pbkdf2::new_impl(10_000, pbkdf2::PBKDF2_HMAC_SHA256)))
         };
     }
 
@@ -63,10 +61,10 @@ mod ring_pbkdf2 {
         }
 
         fn hash_id(&self) -> Hashes {
-            match hash_to_id(self.algorithm).as_ref() {
-                "SHA1" => Hashes::Pbkdf2Sha1,
-                "SHA256" => Hashes::Pbkdf2Sha256,
-                "SHA512" => Hashes::Pbkdf2Sha512,
+            match self.algorithm {
+                a if a == pbkdf2::PBKDF2_HMAC_SHA1 => Hashes::Pbkdf2Sha1,
+                a if a == pbkdf2::PBKDF2_HMAC_SHA256 => Hashes::Pbkdf2Sha256,
+                a if a == pbkdf2::PBKDF2_HMAC_SHA512 => Hashes::Pbkdf2Sha512,
                 _ => panic!("unexpected digest algorithm"),
             }
         }
@@ -75,8 +73,8 @@ mod ring_pbkdf2 {
     impl fmt::Debug for Pbkdf2 {
         fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
             write!(f,
-                   "PBKDF2-{:?}, iterations: {}",
-                   self.algorithm,
+                   "{:?}, iterations: {}",
+                   self.hash_id(),
                    self.iterations)
         }
     }
@@ -85,7 +83,7 @@ mod ring_pbkdf2 {
 #[cfg(test)]
 mod test {
     use ::hashing::*;
-    use ring::digest;
+    use ring::pbkdf2;
     use serde_mcf;
 
     #[test]
@@ -114,13 +112,13 @@ mod test {
 
     #[test]
     fn pbkdf2_params() {
-        let params = Algorithm::Single(super::Pbkdf2::new(1_000, &digest::SHA1));
+        let params = Algorithm::Single(super::Pbkdf2::new(1_000, pbkdf2::PBKDF2_HMAC_SHA1));
         primitive_round_trip!(params);
 
-        let params = Algorithm::Single(super::Pbkdf2::new(1_000, &digest::SHA256));
+        let params = Algorithm::Single(super::Pbkdf2::new(1_000, pbkdf2::PBKDF2_HMAC_SHA256));
         primitive_round_trip!(params);
 
-        let params = Algorithm::Single(super::Pbkdf2::new(1_000, &digest::SHA512));
+        let params = Algorithm::Single(super::Pbkdf2::new(1_000, pbkdf2::PBKDF2_HMAC_SHA512));
         primitive_round_trip!(params);
     }
 }

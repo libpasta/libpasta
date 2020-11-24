@@ -63,7 +63,7 @@ impl Output {
 impl Algorithm {
     /// Type-safe function to compute the hash of a password.
     pub fn hash(&self, password: &str) -> Output {
-        let salt = super::gen_salt(&**config::RANDOMNESS_SOURCE);
+        let salt = super::gen_salt(&*config::RANDOMNESS_SOURCE);
         let output = self.hash_with_salt(password.as_bytes(), &salt);
         Output {
             hash: output,
