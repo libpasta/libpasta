@@ -38,7 +38,7 @@ bench = []
 long_tests = []
 simd = ["argon2rs/simd"]
 
-[profile.debug]
+[profile.dev]
 opt-level = 2
 
 [profile.test]
