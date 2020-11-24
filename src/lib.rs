@@ -55,7 +55,7 @@
     const_err,
     dead_code,
     deprecated,
-    exceeding_bitshifts,
+    arithmetic_overflow,
     improper_ctypes,
     missing_docs,
     mutable_transmutes,
@@ -262,7 +262,7 @@ pub fn migrate_hash_safe(hash: &str) -> Result<Option<String>> {
 
 }
 
-fn gen_salt(rng: &SecureRandom) -> Vec<u8> {
+fn gen_salt(rng: &dyn SecureRandom) -> Vec<u8> {
     let mut salt = vec![0_u8; 16];
     if rng.fill(&mut salt).is_ok() {
         salt

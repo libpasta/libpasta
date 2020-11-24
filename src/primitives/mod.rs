@@ -73,7 +73,7 @@ use std::sync::Arc;
 /// since most use the default algorithms. However, the flexibilty to support
 /// arbitrary parameter sets is essential.
 #[derive(Clone, PartialEq, PartialOrd)]
-pub struct Primitive(pub Sod<PrimitiveImpl>);
+pub struct Primitive(pub Sod<dyn PrimitiveImpl>);
 
 
 impl fmt::Debug for Primitive {
@@ -113,8 +113,8 @@ impl<P: PrimitiveImpl + 'static> From<P> for Primitive {
     }
 }
 
-impl PartialEq<PrimitiveImpl> for PrimitiveImpl {
-    fn eq(&self, other: &PrimitiveImpl) -> bool {
+impl PartialEq<dyn PrimitiveImpl> for dyn PrimitiveImpl {
+    fn eq(&self, other: &dyn PrimitiveImpl) -> bool {
         self.hash_id() == other.hash_id() && self.params_as_vec() == other.params_as_vec()
     }
 }
@@ -122,8 +122,8 @@ impl PartialEq<PrimitiveImpl> for PrimitiveImpl {
 /// Compare two primitive parameterisations by first checking for equality of
 /// the hash identifiers, and then attempting to compare the parameters
 /// numerically.
-impl PartialOrd<PrimitiveImpl> for PrimitiveImpl {
-    fn partial_cmp(&self, other: &PrimitiveImpl) -> Option<Ordering> {
+impl PartialOrd<dyn PrimitiveImpl> for dyn PrimitiveImpl {
+    fn partial_cmp(&self, other: &dyn PrimitiveImpl) -> Option<Ordering> {
         if self.hash_id() == other.hash_id() {
             self.params_as_vec()
                 .iter()
@@ -157,9 +157,9 @@ impl PartialOrd<PrimitiveImpl> for PrimitiveImpl {
 
 
 impl Deref for Primitive {
-    type Target = Sod<PrimitiveImpl>;
+    type Target = Sod<dyn PrimitiveImpl>;
 
-    fn deref(&self) -> &Sod<PrimitiveImpl> {
+    fn deref(&self) -> &Sod<dyn PrimitiveImpl> {
         &self.0
     }
 }

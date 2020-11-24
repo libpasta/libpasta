@@ -41,7 +41,7 @@ mod ring_pbkdf2 {
     }
 
     lazy_static! {
-        static ref DEFAULT: Arc<Box<PrimitiveImpl>> = {
+        static ref DEFAULT: Arc<Box<dyn PrimitiveImpl>> = {
             Arc::new(Box::new(Pbkdf2::new_impl(10_000, pbkdf2::PBKDF2_HMAC_SHA256)))
         };
     }

@@ -77,7 +77,7 @@ pub struct Config {
     primitive: Primitive,
     keyed: Option<Primitive>,
     #[serde(skip, default = "key::get_global")]
-    keys: &'static key::Store,
+    keys: &'static dyn key::Store,
 }
 
 
@@ -257,7 +257,7 @@ impl Config {
     }
 
     /// Sets the location of keys for keyed functions.
-    pub fn set_key_source(&mut self, store: &'static key::Store) {
+    pub fn set_key_source(&mut self, store: &'static dyn key::Store) {
         self.keys = store;
     }
 
