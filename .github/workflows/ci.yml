@@ -44,7 +44,8 @@ jobs:
       - name: Check clippy
         uses: actions-rs/clippy-check@v1
         with:
-          args: --all-features --all-targets -- -D warnings
+          token: 0000000000000000000000000000000000000000
+          args: --all-targets -- -D warnings
 
   test:
     name: Run tests
@@ -76,27 +77,46 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}      
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('Cargo.toml') }}
       - name: Install Rust stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
       - name: Run test
-        run: cargo test --all-targets --all-features
+        run: cargo test --all-targets --features long_tests
 
   bench:
     name: Run benchmarks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          # This prevents the Action from persisting the credentials it uses to
+          # perform the fetch/checkout to the Runner's local Git config. On
+          # `pull_request_target` events, the GITHUB_TOKEN provided to the
+          # Runner has Write permissions to the base repository. We do **not**
+          # want to allow untrusted code from forks to execute arbitrary Git
+          # commands with those elevated permissions.
+          #
+          # More info:
+          # https://github.blog/2020-08-03-github-actions-improvements-for-fork-and-pull-request-workflows/#improvements-for-public-repository-forks
+          persist-credentials: false
+          # Explicitly setting the `repository` and `ref` inputs ensures that
+          # `pull_request_target` events trigger CI runs against the code from
+          # the HEAD branch. By default, this Action checks out code from the
+          # BASE branch. On `push` events, the `github.event.pull_request` path
+          # will yield a null value, and passing nulls to these inputs causes
+          # them to fall back to the defaults
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/cache@v2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}      
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('Cargo.toml') }}
       - name: Install Rust stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -107,7 +127,7 @@ jobs:
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v2
         with:
-          name: bench_result.txt
+          name: bench_result
           path: output.txt
 
   # Split the benchmark testing step into a separate
@@ -115,16 +135,18 @@ jobs:
   bench-check:
     name: Check benchmark result
     runs-on: ubuntu-latest
+    needs: "bench"
     steps:
+      - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
         with:
-          name: bench_result.txt
+          name: bench_result
       - name: Store benchmark result
         uses: rhysd/github-action-benchmark@v1
         with:
           name: Rust Benchmark
           tool: "cargo"
-          output-file-path: bench_result.txt
+          output-file-path: output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-on-alert: true
           alert-threshold: "150%"

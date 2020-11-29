@@ -167,7 +167,7 @@ mod test {
     }
 
     #[test] #[cfg(feature = "long_tests")]
-    fn argon2i_ref_tests() {
+    fn argon2i_ref_tests_long() {
         hashtest(2,
                  18,
                  1,
