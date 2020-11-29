@@ -42,10 +42,18 @@ jobs:
           command: fmt
           args: --all -- --check
       - name: Check clippy
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-targets -- -D warnings
+      - name: Check clippy
+        if: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
         uses: actions-rs/clippy-check@v1
         with:
           token: 0000000000000000000000000000000000000000
           args: --all-targets -- -D warnings
+              
 
   test:
     name: Run tests
