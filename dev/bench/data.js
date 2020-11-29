@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1606687104281,
+  "lastUpdate": 1606687375171,
   "repoUrl": "https://github.com/libpasta/libpasta",
   "entries": {
     "Rust Benchmark": [
@@ -143,6 +143,78 @@ window.BENCHMARK_DATA = {
             "name": "argon2/pasta_4",
             "value": 2372831,
             "range": "± 96698",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sam@osohq.com",
+            "name": "Sam Scott",
+            "username": "samscott89"
+          },
+          "committer": {
+            "email": "sam@osohq.com",
+            "name": "Sam Scott",
+            "username": "samscott89"
+          },
+          "distinct": true,
+          "id": "3921c89aa92a5510cc6c52d0ae4eafff51e51449",
+          "message": "Clippy on push to main.",
+          "timestamp": "2020-11-29T16:50:21-05:00",
+          "tree_id": "5abacb0efd304c0f3e0ac4a26671aad95a5e43a9",
+          "url": "https://github.com/libpasta/libpasta/commit/3921c89aa92a5510cc6c52d0ae4eafff51e51449"
+        },
+        "date": 1606687369187,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "pasta_hash",
+            "value": 81801133,
+            "range": "± 2672633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pasta_hash_dyn_alg",
+            "value": 83315086,
+            "range": "± 2358697",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "argon2/native_1",
+            "value": 3162687,
+            "range": "± 146603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "argon2/native_4",
+            "value": 2751785,
+            "range": "± 205058",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "argon2/ffi_1",
+            "value": 2951305,
+            "range": "± 152492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "argon2/ffi_4",
+            "value": 3573271,
+            "range": "± 295086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "argon2/pasta_1",
+            "value": 3136724,
+            "range": "± 109118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "argon2/pasta_4",
+            "value": 2796365,
+            "range": "± 231640",
             "unit": "ns/iter"
           }
         ]
