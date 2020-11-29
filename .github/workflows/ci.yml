@@ -1,5 +1,7 @@
 name: Rust CI checks
 on:
+  push:
+    branches: ["main"]
   pull_request_target:
 
 jobs:
@@ -125,7 +127,6 @@ jobs:
           output-file-path: bench_result.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-on-alert: true
-          alert-comment-cc-users: "@osohq/eng"
           alert-threshold: "150%"
           # Only push and save on pushes to main.
           auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
