@@ -2,7 +2,7 @@
 #[macro_export]
 macro_rules! benches {
     ($params:path) => {
-        #[cfg(all(test, feature="bench"))]
+        #[cfg(all(test, feature = "bench"))]
         mod bench {
             #![allow(unused_qualifications, unused_imports)]
             extern crate test;
@@ -11,16 +11,14 @@ macro_rules! benches {
 
             use super::*;
 
-            use ::hashing::Algorithm;
+            use hashing::Algorithm;
 
             #[bench]
             fn short(b: &mut Bencher) {
                 let password = "hunter2*********";
                 let alg = Algorithm::Single(<$params>::default().into());
                 println!("Bench params: {:?}", alg);
-                b.iter(|| {
-                    alg.hash(password)
-                })
+                b.iter(|| alg.hash(password))
             }
 
             #[bench]
@@ -29,11 +27,8 @@ macro_rules! benches {
                 println!("Password: {:?}", &password);
                 let alg = Algorithm::Single(<$params>::default().into());
                 println!("Bench params: {:?}", alg);
-                b.iter(|| {
-                    alg.hash(&password)
-                })
+                b.iter(|| alg.hash(&password))
             }
         }
-
-    }
+    };
 }

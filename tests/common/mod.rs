@@ -5,7 +5,7 @@ extern crate env_logger;
 use std::path::PathBuf;
 
 macro_rules! config_test {
-    ($name:ident, $prefix:expr) => (
+    ($name:ident, $prefix:expr) => {
         #[macro_use]
         extern crate log;
 
@@ -20,8 +20,7 @@ macro_rules! config_test {
             assert!(password_hash.starts_with($prefix));
             assert!(libpasta::verify_password(&password_hash, password));
         }
-    
-    )
+    };
 }
 
 pub fn get_test_path(filename: &str) -> PathBuf {

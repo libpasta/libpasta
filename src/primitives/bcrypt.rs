@@ -22,9 +22,7 @@ mod native {
     }
 
     lazy_static! {
-        static ref DEFAULT: Arc<Box<dyn PrimitiveImpl>> = {
-            Arc::new(Box::new(Bcrypt::new_impl(12)))
-        };
+        static ref DEFAULT: Arc<dyn PrimitiveImpl> = Arc::new(Bcrypt::new_impl(12));
     }
 
     impl PrimitiveImpl for Bcrypt {
@@ -53,7 +51,6 @@ mod native {
         }
     }
 
-
     impl fmt::Debug for Bcrypt {
         fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
             write!(f, "Bcrypt, cost: {:?}", self.cost)
@@ -62,6 +59,7 @@ mod native {
 
     impl Bcrypt {
         /// Construct a new `Bcrypt` parameter set.
+        #[allow(clippy::new_ret_no_self)]
         pub fn new(cost: u32) -> Primitive {
             Self::new_impl(cost).into()
         }
@@ -94,7 +92,7 @@ mod bcrypt_test {
         let hash2 = params.compute(password.as_bytes(), &salt);
         assert_eq!(hash, hash2);
         let out = Output {
-            alg: Algorithm::Single(params.into()),
+            alg: Algorithm::Single(params),
             salt,
             hash,
         };
@@ -110,54 +108,76 @@ mod bcrypt_test {
 
     fn openwall_test(hash: &str, password: &[u8]) {
         let pwd_hash: Output = mcf::from_str(&hash).unwrap();
-        assert_eq!(pwd_hash.hash,
-                   pwd_hash.alg.hash_with_salt(password, &pwd_hash.salt));
+        assert_eq!(
+            pwd_hash.hash,
+            pwd_hash.alg.hash_with_salt(password, &pwd_hash.salt)
+        );
     }
 
     // Test the internal Bcrypt implementation against the openwall test vectors.
     // Note that we currently are non compatible with "2x" variant hashes.
     #[test]
     fn openwall_test_vectors() {
-        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW",
-                      b"U*U");
-        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.VGOzA784oUp/Z0DY336zx7pLYAy0lwK",
-                      b"U*U*");
-        openwall_test("$2a$05$XXXXXXXXXXXXXXXXXXXXXOAcXxm9kjPGEMsLznoKqmqw7tc8WCx4a",
-                      b"U*U*U");
-        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.7uG0VCzI2bS7j6ymqJi9CdcdxiRTWNy",
-                      b"");
-        openwall_test("$2a$05$abcdefghijklmnopqrstuu5s2v8.iXieOjg/.AySBTTZIIVFJeBui",
-                      b"0123456789abcdefghijklmnopqrstuvwxyz\
+        openwall_test(
+            "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW",
+            b"U*U",
+        );
+        openwall_test(
+            "$2a$05$CCCCCCCCCCCCCCCCCCCCC.VGOzA784oUp/Z0DY336zx7pLYAy0lwK",
+            b"U*U*",
+        );
+        openwall_test(
+            "$2a$05$XXXXXXXXXXXXXXXXXXXXXOAcXxm9kjPGEMsLznoKqmqw7tc8WCx4a",
+            b"U*U*U",
+        );
+        openwall_test(
+            "$2a$05$CCCCCCCCCCCCCCCCCCCCC.7uG0VCzI2bS7j6ymqJi9CdcdxiRTWNy",
+            b"",
+        );
+        openwall_test(
+            "$2a$05$abcdefghijklmnopqrstuu5s2v8.iXieOjg/.AySBTTZIIVFJeBui",
+            b"0123456789abcdefghijklmnopqrstuvwxyz\
              ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\
-             chars after 72 are ignored");
+             chars after 72 are ignored",
+        );
         // openwall_test("$2x$05$/OK.fbVrR/bpIqNJ5ianF.CE5elHaaO4EbggVDjb8P19RukzXSM3e", b"\xa3");
-        openwall_test("$2y$05$/OK.fbVrR/bpIqNJ5ianF.Sa7shbm4.OzKpvFnX1pQLmQW96oUlCq",
-                      b"\xa3");
+        openwall_test(
+            "$2y$05$/OK.fbVrR/bpIqNJ5ianF.Sa7shbm4.OzKpvFnX1pQLmQW96oUlCq",
+            b"\xa3",
+        );
         // openwall_test("$2x$05$6bNw2HLQYeqHYyBfLMsv/OiwqTymGIGzFsA4hOTWebfehXHNprcAS", b"\xd1\x91");
         // openwall_test("$2x$05$6bNw2HLQYeqHYyBfLMsv/O9LIGgn8OMzuDoHfof8AQimSGfcSWxnS", b"\xd0\xc1\xd2\xcf\xcc\xd8");
-        openwall_test("$2a$05$/OK.fbVrR/bpIqNJ5ianF.swQOIzjOiJ9GHEPuhEkvqrUyvWhEMx6",
-                      b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
+        openwall_test(
+            "$2a$05$/OK.fbVrR/bpIqNJ5ianF.swQOIzjOiJ9GHEPuhEkvqrUyvWhEMx6",
+            b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
              \xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\
-             chars after 72 are ignored as usual");
-        openwall_test("$2a$05$/OK.fbVrR/bpIqNJ5ianF.R9xrDjiycxMbQE2bp.vgqlYpW5wx2yy",
-                      b"\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
+             chars after 72 are ignored as usual",
+        );
+        openwall_test(
+            "$2a$05$/OK.fbVrR/bpIqNJ5ianF.R9xrDjiycxMbQE2bp.vgqlYpW5wx2yy",
+            b"\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
               \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\
-              \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55");
-        openwall_test("$2a$05$CCCCCCCCCCCCCCCCCCCCC.7uG0VCzI2bS7j6ymqJi9CdcdxiRTWNy",
-                      b"");
-        openwall_test("$2a$05$/OK.fbVrR/bpIqNJ5ianF.9tQZzcJfm3uj2NvJ/n5xkhpqLrMpWCe",
-                      b"\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
+              \xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55\xaa\x55",
+        );
+        openwall_test(
+            "$2a$05$CCCCCCCCCCCCCCCCCCCCC.7uG0VCzI2bS7j6ymqJi9CdcdxiRTWNy",
+            b"",
+        );
+        openwall_test(
+            "$2a$05$/OK.fbVrR/bpIqNJ5ianF.9tQZzcJfm3uj2NvJ/n5xkhpqLrMpWCe",
+            b"\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
               \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
               \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
               \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
               \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\
-              \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff");
+              \x55\xaa\xff\x55\xaa\xff\x55\xaa\xff\x55\xaa\xff",
+        );
     }
 }

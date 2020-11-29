@@ -12,7 +12,6 @@
 //! This means that whether using a new or default parameter set, the overall
 //! behaviour is equivalent.
 
-
 /// `Argon2` implementations
 ///
 /// Currently only a native Rust implementation through `argon2rs`.
@@ -47,7 +46,6 @@ pub use self::pbkdf2::Pbkdf2;
 mod scrypt;
 pub use self::scrypt::Scrypt;
 
-
 use sod::Sod;
 
 use config;
@@ -74,7 +72,6 @@ use std::sync::Arc;
 /// arbitrary parameter sets is essential.
 #[derive(Clone, PartialEq, PartialOrd)]
 pub struct Primitive(pub Sod<dyn PrimitiveImpl>);
-
 
 impl fmt::Debug for Primitive {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -109,7 +106,7 @@ pub trait PrimitiveImpl: fmt::Debug + Send + Sync {
 
 impl<P: PrimitiveImpl + 'static> From<P> for Primitive {
     fn from(other: P) -> Self {
-        Primitive(Sod::Dynamic(Arc::new(Box::new(other))))
+        Primitive(Sod::Dynamic(Arc::new(other)))
     }
 }
 
@@ -128,25 +125,29 @@ impl PartialOrd<dyn PrimitiveImpl> for dyn PrimitiveImpl {
             self.params_as_vec()
                 .iter()
                 .zip(other.params_as_vec().iter())
-                .map(|(x, y)| if x == y {
-                    Some(Ordering::Equal)
-                } else if x.0 != y.0 {
-                    None
-                } else if let Ok(x) = x.1.parse::<f64>() {
-                    if let Ok(y) = y.1.parse::<f64>() {
-                        x.partial_cmp(&y)
+                .map(|(x, y)| {
+                    if x == y {
+                        Some(Ordering::Equal)
+                    } else if x.0 != y.0 {
+                        None
+                    } else if let Ok(x) = x.1.parse::<f64>() {
+                        if let Ok(y) = y.1.parse::<f64>() {
+                            x.partial_cmp(&y)
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
-                } else {
-                    None
                 })
-                .try_fold(None, |acc, c| if acc.is_none() {
+                .try_fold(None, |acc, c| {
+                    if acc.is_none() {
                         Some(c)
-                } else if c == acc || c == Some(Ordering::Equal) {
+                    } else if c == acc || c == Some(Ordering::Equal) {
                         Some(acc)
-                } else {
+                    } else {
                         None
+                    }
                 })
                 .unwrap_or(None)
         } else {
@@ -154,7 +155,6 @@ impl PartialOrd<dyn PrimitiveImpl> for dyn PrimitiveImpl {
         }
     }
 }
-
 
 impl Deref for Primitive {
     type Target = Sod<dyn PrimitiveImpl>;
@@ -188,12 +188,12 @@ impl PrimitiveImpl for Poisoned {
 /// Helper macro to unwrap the value or early return with `Poisoned`.
 /// Necessary until `TryFrom` stabilises.
 macro_rules! try_or_poisoned {
-    ($f:expr) => (
+    ($f:expr) => {
         match $f {
             Some(x) => x,
-            None => return Poisoned.into()
+            None => return Poisoned.into(),
         }
-    )
+    };
 }
 
 /// This will be `TryFrom` when it stabilises.
@@ -216,16 +216,19 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
                 let key_id = try_or_poisoned!(other.1.get("key_id").and_then(Value::as_str));
                 Hmac::with_key_id(hash_from_id(hash_id), key_id)
             }
-            ref x @ Hashes::Pbkdf2Sha1 |
-            ref x @ Hashes::Pbkdf2Sha256 |
-            ref x @ Hashes::Pbkdf2Sha512 => {
+            ref x @ Hashes::Pbkdf2Sha1
+            | ref x @ Hashes::Pbkdf2Sha256
+            | ref x @ Hashes::Pbkdf2Sha512 => {
                 let iterations = try_or_poisoned!(other.1.get("n").and_then(value_as_int));
-                pbkdf2::Pbkdf2::new(iterations, match *x {
-                    Hashes::Pbkdf2Sha1 => ring::pbkdf2::PBKDF2_HMAC_SHA1,
-                    Hashes::Pbkdf2Sha256 => ring::pbkdf2::PBKDF2_HMAC_SHA256,
-                    Hashes::Pbkdf2Sha512 => ring::pbkdf2::PBKDF2_HMAC_SHA512,
-                    _ => return Poisoned.into() // not actually possible due to previous matching,
-                })
+                pbkdf2::Pbkdf2::new(
+                    iterations,
+                    match *x {
+                        Hashes::Pbkdf2Sha1 => &ring::pbkdf2::PBKDF2_HMAC_SHA1,
+                        Hashes::Pbkdf2Sha256 => &ring::pbkdf2::PBKDF2_HMAC_SHA256,
+                        Hashes::Pbkdf2Sha512 => &ring::pbkdf2::PBKDF2_HMAC_SHA512,
+                        _ => return Poisoned.into(), // not actually possible due to previous matching,
+                    },
+                )
             }
             Hashes::Scrypt => {
                 let log_n = try_or_poisoned!(other.1.get("ln").and_then(value_as_int));
@@ -239,7 +242,8 @@ impl<'a> From<(&'a Hashes, &'a Map<String, Value>)> for Primitive {
 }
 
 fn value_as_int<T>(val: &Value) -> Option<T>
-    where T: num_traits::Num + FromPrimitive
+where
+    T: num_traits::Num + FromPrimitive,
 {
     match *val {
         Value::Number(ref x) => {
@@ -271,7 +275,8 @@ fn hash_to_id(algorithm: hkdf::Algorithm) -> String {
         a if a == hkdf::HKDF_SHA384 => "SHA384",
         a if a == hkdf::HKDF_SHA512 => "SHA512",
         _ => panic!("Unknown digest algorithm"),
-    }.to_owned()
+    }
+    .to_owned()
 }
 
 fn hash_from_id(id: &str) -> hkdf::Algorithm {
@@ -283,7 +288,6 @@ fn hash_from_id(id: &str) -> hkdf::Algorithm {
         _ => panic!("Unknown digest algorithm"),
     }
 }
-
 
 #[cfg(test)]
 mod test {
