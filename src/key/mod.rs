@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::RwLock;
 
-lazy_static!{
+lazy_static! {
     static ref LOCAL_STORE: LocalStore = LocalStore::new();
 }
 
@@ -24,7 +24,6 @@ pub(crate) fn get_global() -> &'static LocalStore {
 pub struct LocalStore {
     store: RwLock<HashMap<String, Vec<u8>>>,
 }
-
 
 /// A key storage source. Permits retrieving and storing keys.
 ///
@@ -39,7 +38,9 @@ pub trait Store: fmt::Debug + Send + Sync {
 
 impl LocalStore {
     fn new() -> Self {
-        Self { store: RwLock::new(HashMap::new()) }
+        Self {
+            store: RwLock::new(HashMap::new()),
+        }
     }
 }
 
@@ -48,7 +49,8 @@ impl Store for LocalStore {
     fn insert(&self, key: &[u8]) -> String {
         let digest = digest::digest(&digest::SHA512_256, key);
         let key_id = BASE64_NOPAD.encode(digest.as_ref());
-        let _ = self.store
+        let _ = self
+            .store
             .write()
             .expect("could not get write on key store")
             .insert(key_id.clone(), key.to_vec());
@@ -57,7 +59,12 @@ impl Store for LocalStore {
 
     /// Get a key from the `KeyStore`.
     fn get_key(&self, id: &str) -> Option<Vec<u8>> {
-        if let Some(v) = self.store.read().expect("could not get read lock on key store").get(id) {
+        if let Some(v) = self
+            .store
+            .read()
+            .expect("could not get read lock on key store")
+            .get(id)
+        {
             Some(v.clone())
         } else {
             None

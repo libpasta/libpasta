@@ -14,21 +14,22 @@
 //! There are a number of ways panics can happen through using the configuration
 //! files. `libpasta` does not try to recover gracefully if
 use lazy_static;
-use ring::{hkdf, rand};
 use ring::rand::SecureRandom;
+use ring::{hkdf, rand};
 use serde_mcf;
 use serde_yaml;
 
 use super::HashUpdate;
-use key;
-use errors::*;
+use errors::{ExpectReport, Result};
 use hashing::{Algorithm, Output};
+use key;
 use primitives::{self, Primitive};
 
 use std::default::Default;
+use std::fmt;
 use std::fs::File;
-use std::path::Path;
 use std::io::BufReader;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 lazy_static! {
@@ -80,8 +81,6 @@ pub struct Config {
     keys: &'static dyn key::Store,
 }
 
-
-
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -93,9 +92,15 @@ impl Default for Config {
     }
 }
 
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&serde_yaml::to_string(&self).map_err(|_| fmt::Error)?)
+    }
+}
 
 impl Config {
     /// Create a new empty `Config` for setting parameters.
+    #[must_use]
     pub fn with_primitive(primitive: Primitive) -> Self {
         Self {
             algorithm: Algorithm::Single(primitive.clone()),
@@ -106,8 +111,12 @@ impl Config {
     }
 
     /// Generates a `Config` from a .toml file.
-    /// Config files can be generated using the `Config::to_string` method on 
+    /// Config files can be generated using the `Config::to_string` method on
     /// an existing config.
+    ///
+    /// # Errors
+    ///
+    /// If the config file could not be opened
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(path.as_ref());
         if let Ok(file) = file {
@@ -119,13 +128,11 @@ impl Config {
             }
             trace!("imported config as: {:?}", config);
             Ok(config)
-            
         } else {
             info!("could not open config file {:?}: {:?}", path.as_ref(), file);
             Err("could not open config file".into())
         }
     }
-
 
     /// Generates hash for a given password.
     ///
@@ -136,8 +143,10 @@ impl Config {
     ///    /// ## Panics
     /// A panic indicates a problem with the serialization mechanisms, and should
     /// be reported.
+    #[must_use]
     pub fn hash_password(&self, password: &str) -> String {
-        self.hash_password_safe(password).expect_report("failed to hash password")
+        self.hash_password_safe(password)
+            .expect_report("failed to hash password")
     }
 
     /// Same as `hash_password` but returns `Result` to allow error handling.
@@ -152,6 +161,7 @@ impl Config {
     ///
     /// If there is any error in processing the hash or password, this
     /// will simply return `false`.
+    #[must_use]
     pub fn verify_password(&self, hash: &str, password: &str) -> bool {
         self.verify_password_safe(hash, password).unwrap_or(false)
     }
@@ -169,12 +179,17 @@ impl Config {
     /// and performs an in-place update of the hash value if the password verifies.
     /// Hence this needs to take a mutable `String` reference.
     pub fn verify_password_update_hash(&self, hash: &str, password: &str) -> HashUpdate {
-        self.verify_password_update_hash_safe(hash, password).unwrap_or(HashUpdate::Failed)
+        self.verify_password_update_hash_safe(hash, password)
+            .unwrap_or(HashUpdate::Failed)
     }
 
     /// Same as `verify_password_update_hash`, but returns `Result` to allow error handling.
     #[doc(hidden)]
-    pub fn verify_password_update_hash_safe(&self, hash: &str, password: &str) -> Result<HashUpdate> {
+    pub fn verify_password_update_hash_safe(
+        &self,
+        hash: &str,
+        password: &str,
+    ) -> Result<HashUpdate> {
         let pwd_hash: Output = serde_mcf::from_str(hash)?;
         if pwd_hash.verify(password) {
             if pwd_hash.alg == self.algorithm {
@@ -188,7 +203,6 @@ impl Config {
         }
     }
 
-
     /// Migrate the input hash to the current recommended hash.
     ///
     /// Note that this does *not* require the password. This is for batch updating
@@ -197,8 +211,10 @@ impl Config {
     ///
     /// If the password is also available, the `verify_password_update_hash` should
     /// instead be used.
+    #[must_use]
     pub fn migrate_hash(&self, hash: &str) -> Option<String> {
-        self.migrate_hash_safe(hash).expect("failed to migrate password")
+        self.migrate_hash_safe(hash)
+            .expect("failed to migrate password")
     }
 
     /// Same as `migrate_hash` but returns `Result` to allow error handling.
@@ -224,8 +240,8 @@ impl Config {
         Ok(Some(serde_mcf::to_string(&new_hash)?))
     }
 
-
     /// Add a new key into the list of configured keys
+    #[must_use]
     pub fn add_key(&self, key: &[u8]) -> String {
         self.keys.insert(key)
     }
@@ -238,8 +254,10 @@ impl Config {
     pub fn set_primitive(&mut self, primitive: Primitive) {
         self.primitive = primitive.clone();
         self.algorithm = match self.algorithm {
-            Algorithm::Single(_) => Algorithm::Single(primitive.clone()),
-            Algorithm::Nested { ref outer, .. } => Algorithm::Single(primitive).into_wrapped(outer.clone())
+            Algorithm::Single(_) => Algorithm::Single(primitive),
+            Algorithm::Nested { ref outer, .. } => {
+                Algorithm::Single(primitive).into_wrapped(outer.clone())
+            }
         };
     }
 
@@ -250,7 +268,10 @@ impl Config {
             // If just a single algorithm, wrap with the keyed primitive
             Algorithm::Single(_) => self.algorithm.to_wrapped(keyed),
             // Otherwise, replace the outer algorithm with the keyed primitive
-            Algorithm::Nested { outer: ref _outer, ref inner } => inner.to_wrapped(keyed)
+            Algorithm::Nested {
+                outer: ref _outer,
+                ref inner,
+            } => inner.to_wrapped(keyed),
         };
         newalg.update_key(self);
         self.algorithm = newalg;
@@ -259,12 +280,6 @@ impl Config {
     /// Sets the location of keys for keyed functions.
     pub fn set_key_source(&mut self, store: &'static dyn key::Store) {
         self.keys = store;
-    }
-
-
-    /// Serialize the configuration as YAML
-    pub fn to_string(&self) -> String {
-        serde_yaml::to_string(&self).expect("failed to serialize config")
     }
 }
 
@@ -277,9 +292,12 @@ impl BackupPrng {
     fn gen_salt(&mut self) -> Vec<u8> {
         let mut buf = [0_u8; 48];
         let alg = self.salt.algorithm();
-        self.salt.extract(&self.seed)
-                 .expand(&[b"libpasta backup PRNG"], alg).expect("expand failure")
-                 .fill(&mut buf[..]).expect("fill failure");
+        self.salt
+            .extract(&self.seed)
+            .expand(&[b"libpasta backup PRNG"], alg)
+            .expect("expand failure")
+            .fill(&mut buf[..])
+            .expect("fill failure");
         self.seed.copy_from_slice(&buf[16..]);
         let mut output = Vec::with_capacity(16);
         output.extend_from_slice(&buf[0..16]);
@@ -288,26 +306,29 @@ impl BackupPrng {
 }
 
 pub(crate) fn backup_gen_salt() -> Vec<u8> {
-    RAND_BACKUP.lock().expect("could not acquire lock on RAND_BACKUP").gen_salt()
+    RAND_BACKUP
+        .lock()
+        .expect("could not acquire lock on RAND_BACKUP")
+        .gen_salt()
 }
-
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::wildcard_imports)]
     use super::*;
-    use super::super::*;
+    use crate::*;
 
     use ring;
     #[test]
     fn use_config() {
         let config = Config::with_primitive(primitives::Argon2::default());
-        let hash = config.hash_password("hunter2".into());
-        assert!(config.verify_password(&hash, "hunter2".into()));
+        let hash = config.hash_password("hunter2");
+        assert!(config.verify_password(&hash, "hunter2"));
 
         let mut config = Config::default();
         config.set_primitive(primitives::Bcrypt::default());
-        let hash = config.hash_password("hunter2".into());
-        assert!(verify_password(&hash, "hunter2".into()));
+        let hash = config.hash_password("hunter2");
+        assert!(verify_password(&hash, "hunter2"));
     }
 
     #[derive(Debug)]

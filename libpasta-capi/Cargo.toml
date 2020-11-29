@@ -8,10 +8,10 @@ build = "build.rs"
 [dependencies]
 libc = "0.2"
 libpasta = { version = "0.1.0", path = ".." }
-rpassword = "2.0"
+rpassword = "5.0.0"
 
 [build-dependencies]
-cbindgen = "0.6"
+cbindgen = "0.15.0"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

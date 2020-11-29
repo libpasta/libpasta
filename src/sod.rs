@@ -10,7 +10,6 @@
 ///
 /// Many thanks to [panicbit](https://github.com/panicbit) for helping to
 /// get the `Deref` implementation working to make all the magic happen.
-
 use std::cmp::Ordering;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -24,7 +23,7 @@ pub enum Sod<T: ?Sized + 'static> {
     /// Static reference to T
     Static(&'static T),
     /// Dynamically allocated T, on the heap, atomically reference-counted.
-    Dynamic(Arc<Box<T>>),
+    Dynamic(Arc<T>),
 }
 
 impl<T: ?Sized> Deref for Sod<T> {

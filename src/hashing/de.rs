@@ -13,14 +13,13 @@
 use hashing::{Algorithm, Output};
 use primitives::Primitive;
 
-use serde::{Deserialize, Deserializer};
-use serde::de::{self, Visitor};
 use serde::de::Error;
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer};
 use serde_mcf;
 use serde_mcf::{base64, base64bcrypt, Hashes};
 
 use std::fmt;
-
 
 /// Currently supported hashing variants.
 ///
@@ -43,7 +42,7 @@ enum PastaVariants {
     Nested,
 }
 
-static VAR_STRUCT: [&'static str; 2] = ["variant", "remaining"];
+static VAR_STRUCT: [&str; 2] = ["variant", "remaining"];
 
 // The *Fields structs define the layout of the various supported variants,
 // as detailed above. After parsing the algorithm identifier, one of these
@@ -78,7 +77,8 @@ struct PastaNest {
 // Deserialize Output using OutputVisitor
 impl<'de> Deserialize<'de> for Output {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_struct("var_container", &VAR_STRUCT, OutputVisitor)
     }
@@ -98,9 +98,9 @@ impl<'de> Visitor<'de> for OutputVisitor {
     }
 
     fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-        where V: de::MapAccess<'de>
+    where
+        V: de::MapAccess<'de>,
     {
-
         // The first step is to detect which variant we are dealing with.
         let _: Option<String> = map.next_key()?;
         let var: SupportedVariants = map.next_value()?;
@@ -114,7 +114,10 @@ impl<'de> Visitor<'de> for OutputVisitor {
                 let fields: BcryptFields = map.next_value()?;
                 let prim = ::primitives::Bcrypt::new(fields.cost);
                 if prim == ::primitives::Poisoned.into() {
-                    return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
+                    return Err(V::Error::custom(format!(
+                        "failed to deserialize as {:?}",
+                        var
+                    )));
                 }
                 Ok(Output {
                     alg: Algorithm::Single(prim),
@@ -127,7 +130,10 @@ impl<'de> Visitor<'de> for OutputVisitor {
                 let fields: McfFields = map.next_value()?;
                 let prim = ::primitives::Primitive::from((&var, &fields.params));
                 if prim == ::primitives::Poisoned.into() {
-                    return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
+                    return Err(V::Error::custom(format!(
+                        "failed to deserialize as {:?}",
+                        var
+                    )));
                 }
                 Ok(Output {
                     alg: Algorithm::Single(prim),
@@ -140,10 +146,13 @@ impl<'de> Visitor<'de> for OutputVisitor {
                     PastaVariants::Single => {
                         let _: Option<String> = map.next_key()?;
                         let output: serde_mcf::McfHash = map.next_value()?;
-                        let prim = ::primitives::Primitive::from((&output.algorithm,
-                                                                  &output.parameters));
+                        let prim =
+                            ::primitives::Primitive::from((&output.algorithm, &output.parameters));
                         if prim == ::primitives::Poisoned.into() {
-                            return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
+                            return Err(V::Error::custom(format!(
+                                "failed to deserialize as {:?}",
+                                var
+                            )));
                         }
                         Ok(Output {
                             alg: Algorithm::Single(prim),
@@ -157,10 +166,13 @@ impl<'de> Visitor<'de> for OutputVisitor {
                         // recursively deserializing PastaVariants until
                         // reaching the end.
                         let fields: PastaNest = map.next_value()?;
-                        let prim = ::primitives::Primitive::from((&fields.outer_id,
-                                                                  &fields.outer_params));
+                        let prim =
+                            ::primitives::Primitive::from((&fields.outer_id, &fields.outer_params));
                         if prim == ::primitives::Poisoned.into() {
-                            return Err(V::Error::custom(format!("failed to deserialize as {:?}", var)));
+                            return Err(V::Error::custom(format!(
+                                "failed to deserialize as {:?}",
+                                var
+                            )));
                         }
                         Ok(Output {
                             alg: Algorithm::Nested {
@@ -179,10 +191,10 @@ impl<'de> Visitor<'de> for OutputVisitor {
 
 impl<'de> Deserialize<'de> for SupportedVariants {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_identifier(VariantVisitor)
-
     }
 }
 
@@ -199,24 +211,22 @@ impl<'de> Visitor<'de> for VariantVisitor {
     }
 
     fn visit_borrowed_str<E>(self, val: &str) -> Result<Self::Value, E>
-        where E: Error
+    where
+        E: Error,
     {
         let variant = match val {
             "" => SupportedVariants::Pasta(PastaVariants::Single),
             "!" => SupportedVariants::Pasta(PastaVariants::Nested),
             other => {
-                let variant = Hashes::from_id(other).ok_or_else(|| {
-                        E::custom(format!("unknown MCF variant: {}", other))
-                    })?;
+                let variant = Hashes::from_id(other)
+                    .ok_or_else(|| E::custom(format!("unknown MCF variant: {}", other)))?;
 
                 match variant {
-                    Hashes::Bcrypt |
-                    Hashes::Bcrypta |
-                    Hashes::Bcryptx |
-                    Hashes::Bcrypty |
-                    Hashes::Bcryptb => {
-                        SupportedVariants::Bcrypt(variant)
-                    },
+                    Hashes::Bcrypt
+                    | Hashes::Bcrypta
+                    | Hashes::Bcryptx
+                    | Hashes::Bcrypty
+                    | Hashes::Bcryptb => SupportedVariants::Bcrypt(variant),
                     _ => SupportedVariants::Mcf(variant),
                 }
             }
@@ -228,7 +238,8 @@ impl<'de> Visitor<'de> for VariantVisitor {
 // The deserializing of a `Primitive` is used in the nested `Pasta` variants.
 impl<'de> Deserialize<'de> for Primitive {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
         struct PrimitiveStruct {
@@ -246,15 +257,18 @@ impl<'de> Deserialize<'de> for Primitive {
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::clippy::shadow_unrelated)]
+    use super::*;
     use serde_mcf;
     use serde_yaml;
-    use super::*;
 
     #[test]
     fn variant_tests() {
         let variant = "$argon2i";
-        assert_eq!(serde_mcf::from_str::<SupportedVariants>(variant).unwrap(),
-        SupportedVariants::Mcf(Hashes::Argon2i));
+        assert_eq!(
+            serde_mcf::from_str::<SupportedVariants>(variant).unwrap(),
+            SupportedVariants::Mcf(Hashes::Argon2i)
+        );
 
         let not_a_variant = "12";
         assert!(serde_yaml::from_str::<SupportedVariants>(not_a_variant).is_err());
