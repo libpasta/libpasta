@@ -14,7 +14,7 @@
 //! There are a number of ways panics can happen through using the configuration
 //! files. `libpasta` does not try to recover gracefully if
 use lazy_static;
-use ring::{digest, hkdf, hmac, rand};
+use ring::{hkdf, rand};
 use ring::rand::SecureRandom;
 use serde_mcf;
 use serde_yaml;
@@ -24,31 +24,30 @@ use key;
 use errors::*;
 use hashing::{Algorithm, Output};
 use primitives::{self, Primitive};
-use sod::Sod;
 
 use std::default::Default;
 use std::fs::File;
-use std::marker::{Send, Sync};
 use std::path::Path;
 use std::io::BufReader;
 use std::sync::{Arc, Mutex};
 
-static RAND_REF: &'static (SecureRandom + Send + Sync) = &rand::SystemRandom;
 lazy_static! {
     /// Global source of randomness for generating salts
-    pub static ref RANDOMNESS_SOURCE: Sod<SecureRandom + Send + Sync> = {
+    pub static ref RANDOMNESS_SOURCE: rand::SystemRandom = {
         lazy_static::initialize(&RAND_BACKUP);
-        Sod::Static(RAND_REF)
+        rand::SystemRandom::new()
     };
 
-    /// Backup PRNG source for when `SystemRandom`is unavailable
+    /// Backup PRNG source for when `SystemRandom` is unavailable
     static ref RAND_BACKUP: Arc<Mutex<BackupPrng>> = {
         let rng = rand::SystemRandom::new();
         let mut seed = [0_u8; 32];
+        let mut salt_key_value = [0_u8; 32];
         rng.fill(&mut seed).expect("could not generate any randomness");
+        rng.fill(&mut salt_key_value).expect("could not generate any randomness");
         Arc::new(Mutex::new(BackupPrng {
-            salt: hmac::SigningKey::generate(&digest::SHA256, &rng).expect("could not generate any randomness"),
-            seed: seed,
+            salt: hkdf::Salt::new(hkdf::HKDF_SHA256, &salt_key_value[..]),
+            seed,
         }))
     };
 
@@ -78,7 +77,7 @@ pub struct Config {
     primitive: Primitive,
     keyed: Option<Primitive>,
     #[serde(skip, default = "key::get_global")]
-    keys: &'static key::Store,
+    keys: &'static dyn key::Store,
 }
 
 
@@ -258,7 +257,7 @@ impl Config {
     }
 
     /// Sets the location of keys for keyed functions.
-    pub fn set_key_source(&mut self, store: &'static key::Store) {
+    pub fn set_key_source(&mut self, store: &'static dyn key::Store) {
         self.keys = store;
     }
 
@@ -270,21 +269,20 @@ impl Config {
 }
 
 struct BackupPrng {
-    salt: hmac::SigningKey,
+    salt: hkdf::Salt,
     seed: [u8; 32],
 }
 
 impl BackupPrng {
     fn gen_salt(&mut self) -> Vec<u8> {
-        let mut output = vec![0_u8; 48];
-        hkdf::extract_and_expand(
-            &self.salt,
-            &self.seed,
-            b"libpasta backup PRNG",
-            &mut output
-        );
-        self.seed.copy_from_slice(&output[16..]);
-        output.truncate(16);
+        let mut buf = [0_u8; 48];
+        let alg = self.salt.algorithm();
+        self.salt.extract(&self.seed)
+                 .expand(&[b"libpasta backup PRNG"], alg).expect("expand failure")
+                 .fill(&mut buf[..]).expect("fill failure");
+        self.seed.copy_from_slice(&buf[16..]);
+        let mut output = Vec::with_capacity(16);
+        output.extend_from_slice(&buf[0..16]);
         output
     }
 }
@@ -334,7 +332,7 @@ mod test {
         config.set_key_source(&STATIC_SOURCE);
         let id = config.add_key(&[]);
         assert_eq!(config.get_key(&id), Some(b"ThisIsAStaticKey".to_vec()));
-        let hmac = primitives::Hmac::with_key_id(&ring::digest::SHA256, "dummy");
+        let hmac = primitives::Hmac::with_key_id(ring::hkdf::HKDF_SHA256, "dummy");
         config.set_keyed_hash(hmac);
         let hash = config.hash_password("hunter2");
         assert!(config.verify_password_safe(&hash, "hunter2").unwrap())

@@ -22,7 +22,7 @@ mod native {
     }
 
     lazy_static! {
-        static ref DEFAULT: Arc<Box<PrimitiveImpl>> = {
+        static ref DEFAULT: Arc<Box<dyn PrimitiveImpl>> = {
             Arc::new(Box::new(Bcrypt::new_impl(12)))
         };
     }

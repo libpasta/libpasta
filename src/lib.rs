@@ -55,7 +55,7 @@
     const_err,
     dead_code,
     deprecated,
-    exceeding_bitshifts,
+    arithmetic_overflow,
     improper_ctypes,
     missing_docs,
     mutable_transmutes,
@@ -66,7 +66,6 @@
     non_upper_case_globals,
     overflowing_literals,
     path_statements,
-    plugin_as_library,
     stable_features,
     trivial_numeric_casts,
     unconditional_recursion,
@@ -262,7 +261,7 @@ pub fn migrate_hash_safe(hash: &str) -> Result<Option<String>> {
 
 }
 
-fn gen_salt(rng: &SecureRandom) -> Vec<u8> {
+fn gen_salt(rng: &dyn SecureRandom) -> Vec<u8> {
     let mut salt = vec![0_u8; 16];
     if rng.fill(&mut salt).is_ok() {
         salt
@@ -277,7 +276,7 @@ use ring::rand::SystemRandom;
 
 #[cfg(test)]
 fn get_salt() -> Vec<u8> {
-    gen_salt(&SystemRandom)
+    gen_salt(&SystemRandom::new())
 }
 
 #[cfg(test)]

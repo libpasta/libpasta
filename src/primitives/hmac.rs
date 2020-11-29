@@ -7,7 +7,8 @@ mod hmac_ring {
     use key::Store;
     use primitives::Primitive;
 
-    use ring::{digest, hkdf, hmac, rand};
+    use ring::{hkdf, rand};
+    use ring::rand::SecureRandom as _;
     use serde_mcf::Hashes;
 
     use std::fmt;
@@ -17,17 +18,17 @@ mod hmac_ring {
     /// This struct holds the parameters used.
     /// Represents the `ring` implementation.
     pub struct Hmac {
-        h: &'static digest::Algorithm,
-        key: Option<hmac::SigningKey>,
+        algorithm: hkdf::Algorithm,
+        salt: Option<hkdf::Salt>,
         key_id: String,
     }
 
     impl Hmac {
         /// Construct a new `Hmac` instance with a specified key identifier
-        pub fn with_key_id(h: &'static digest::Algorithm, key_id: &str) -> Primitive {
+        pub fn with_key_id(algorithm: hkdf::Algorithm, key_id: &str) -> Primitive {
             Self {
-                h,
-                key: key::get_global().get_key(key_id).map(|k| hmac::SigningKey::new(h, &k)),
+                algorithm,
+                salt: key::get_global().get_key(key_id).map(|k| hkdf::Salt::new(algorithm, &k)),
                 key_id: key_id.to_string(),
             }.into()
         }
@@ -40,12 +41,13 @@ mod hmac_ring {
         fn new() -> Self {
             let rng = rand::SystemRandom::new();
             let mut key_bytes = [0_u8; 32];
-            let key = hmac::SigningKey::generate_serializable(&digest::SHA256, &rng, &mut key_bytes)
-                .expect("could not generate random bytes for key");
+            rng.fill(&mut key_bytes).expect("could not generate random bytes for key");
+            let algorithm = hkdf::HKDF_SHA256;
+            let salt = hkdf::Salt::new(algorithm, &key_bytes[..]);
             let key_id = key::get_global().insert(&key_bytes);
             Self {
-                h: &digest::SHA256,
-                key: Some(key),
+                algorithm,
+                salt: Some(salt),
                 key_id,
             }
         }
@@ -55,8 +57,10 @@ mod hmac_ring {
         /// Compute the scrypt hash
         fn compute(&self, password: &[u8], _salt: &[u8]) -> Vec<u8> {
             let mut hash = vec![0_u8; 32];
-            let key = self.key.as_ref().expect_report("key not found");
-            hkdf::extract_and_expand(key, password, b"libpasta password hashing", &mut hash);
+            let salt = self.salt.as_ref().expect_report("key not found");
+            salt.extract(password)
+                .expand(&[b"libpasta password hashing"], salt.algorithm()).expect("expand failure")
+                .fill(&mut hash).expect("fill failure");
             hash
         }
 
@@ -64,7 +68,7 @@ mod hmac_ring {
         /// for serializing.
         fn params_as_vec(&self) -> Vec<(&'static str, String)> {
             vec![("key_id", self.key_id.clone()),
-                 ("h", super::super::hash_to_id(self.h))]
+                 ("h", super::super::hash_to_id(self.algorithm))]
         }
 
         fn hash_id(&self) -> Hashes {
@@ -73,8 +77,8 @@ mod hmac_ring {
 
         fn update_key(&self, config: &config::Config) -> Option<Primitive> {
             Some(Self {
-                h: self.h,
-                key: config.get_key(&self.key_id).map(|k| hmac::SigningKey::new(self.h, &k)),
+                algorithm: self.algorithm,
+                salt: config.get_key(&self.key_id).map(|k| hkdf::Salt::new(self.algorithm, &k)),
                 key_id: self.key_id.clone(),
             }.into())
         }
@@ -85,7 +89,7 @@ mod hmac_ring {
             write!(f,
                    "Hmac, KeyID: {}, Hash: {}",
                    self.key_id,
-                   super::super::hash_to_id(self.h))
+                   super::super::hash_to_id(self.algorithm))
         }
     }
 }
