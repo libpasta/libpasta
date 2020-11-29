@@ -1,105 +1,88 @@
-#![feature(test)]
-
 extern crate argon2rs;
 extern crate cargon;
+extern crate criterion;
 extern crate libpasta;
 extern crate serde_mcf;
-extern crate test;
-extern crate time;
-use test::Bencher;
 
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
-use libpasta::primitives::{Argon2, Scrypt, Primitive};
 use libpasta::hashing::Algorithm;
+use libpasta::primitives::{Argon2, Primitive, Scrypt};
 
-#[bench]
-fn empty(b: &mut Bencher) {
-    b.iter(|| 1)
-}
-
-use std::fs::File;
-
-#[bench]
-fn raw_argon2(_b: &mut Bencher) {
-    let _f1 = File::create("native.txt").unwrap();
-    let _f2 = File::create("ffi.txt").unwrap();
-    let reps = 10;
+fn argon2_comparison(c: &mut Criterion) {
     let password = [0; 16];
     let salt = [1; 16];
     let t_cost = 3;
-    let thread_test = [1, 2, 4, 8];
+    let thread_test = [1, 4];
     let mut out = [0u8; 32];
-    let mut m_cost = 1 << 10;
-    while m_cost <= 1 << 22 {
+    let m_costs: Vec<u32> = (10..=14).map(|i| 1 << i).collect();
+
+    let mut group = c.benchmark_group("argon2");
+
+    for &m_cost in &m_costs {
+        group.throughput(Throughput::Bytes(u64::from(m_cost)));
+        for threads in &thread_test {
+            let alg = argon2rs::Argon2::new(t_cost, *threads, m_cost, argon2rs::Variant::Argon2i)
+                .unwrap();
+            group.bench_function(
+                BenchmarkId::from_parameter(format!("native_{}", threads)),
+                |b| b.iter(|| alg.hash(&mut out, &password, &salt, &[], &[])),
+            );
+        }
+    }
+
+    for &m_cost in &m_costs {
+        group.throughput(Throughput::Bytes(u64::from(m_cost)));
         for threads in &thread_test {
             let alg = argon2rs::Argon2::new(t_cost, *threads, m_cost, argon2rs::Variant::Argon2i)
                 .unwrap();
             let mut alg_ffi = mk_cargon(&alg, &mut out, &password, &salt, &[], &[]);
+            group.bench_function(
+                BenchmarkId::from_parameter(format!("ffi_{}", threads)),
+                |b| {
+                    b.iter(|| unsafe {
+                        cargon::argon2_ctx(&mut alg_ffi, argon2rs::Variant::Argon2i as usize);
+                    })
+                },
+            );
+        }
+    }
+
+    for &m_cost in &m_costs {
+        group.throughput(Throughput::Bytes(u64::from(m_cost)));
+        for threads in &thread_test {
             let prim: Primitive = Argon2::new(t_cost, *threads, m_cost);
             let pastalg = Algorithm::Single(prim);
-
-            let start = time::precise_time_ns();
-            for _ in 0..reps {
-                alg.hash(&mut out, &password, &salt, &[], &[]);
-            }
-            let end = time::precise_time_ns();
-            let native = (end - start) as f64;
-
-            let start = time::precise_time_ns();
-            for _ in 0..reps {
-                unsafe {
-                    cargon::argon2_ctx(&mut alg_ffi, argon2rs::Variant::Argon2i as usize);
-                }
-            }
-            let end = time::precise_time_ns();
-            let ffi = (end - start) as f64;
-
-            let start = time::precise_time_ns();
-            for _ in 0..reps {
-                let _ = serde_mcf::to_string(&pastalg.hash("hunter2"));
-            }
-            let end = time::precise_time_ns();
-            let libp = (end - start) as f64;
-
-            println!("{} {} iterations  {} MiB {} threads ... {} reps",
-                     "Argon2i",
-                     t_cost,
-                     m_cost / 1024,
-                     threads,
-                     reps);
-            println!("Native:   {:.4} seconds", native / 1_000_000_000f64);
-            println!("libpasta: {:.4} seconds", libp / 1_000_000_000f64);
-            println!("FFI:      {:.4} seconds\n", ffi / 1_000_000_000f64);
+            group.bench_function(
+                BenchmarkId::from_parameter(format!("pasta_{}", threads)),
+                |b| b.iter(|| pastalg.hash_with_salt(&password, &salt)),
+            );
         }
-        m_cost <<= 1;
-
     }
 }
 
-
-#[bench]
-fn pasta_hash_static(b: &mut Bencher) {
+fn pasta_hash_static(c: &mut Criterion) {
     let password = "hunter2";
-    b.iter(|| libpasta::hash_password(password))
+    c.bench_function("pasta_hash", |b| {
+        b.iter(|| libpasta::hash_password(password))
+    });
 }
 
-#[bench]
-fn pasta_hash_dyn(b: &mut Bencher) {
+fn pasta_hash_dyn(c: &mut Criterion) {
     let password = "hunter2";
     let alg = Algorithm::Single(Scrypt::new(14, 8, 1));
-    b.iter(|| {
-        alg.hash(password)
-    })
+    c.bench_function("pasta_hash_dyn_alg", |b| b.iter(|| alg.hash(password)));
 }
 
 use std::ptr;
-fn mk_cargon(a2: &argon2rs::Argon2,
-             out: &mut [u8],
-             p: &[u8],
-             s: &[u8],
-             k: &[u8],
-             x: &[u8])
-             -> cargon::CargonContext {
+fn mk_cargon(
+    a2: &argon2rs::Argon2,
+    out: &mut [u8],
+    p: &[u8],
+    s: &[u8],
+    k: &[u8],
+    x: &[u8],
+) -> cargon::CargonContext {
     let (_, kib, passes, lanes) = a2.params();
     cargon::CargonContext {
         out: out.as_mut_ptr(),
@@ -115,7 +98,7 @@ fn mk_cargon(a2: &argon2rs::Argon2,
 
         t_cost: passes,
         m_cost: kib,
-        lanes: lanes,
+        lanes,
         threads: lanes,
         version: 0x13,
         allocate_fptr: ptr::null(),
@@ -123,3 +106,11 @@ fn mk_cargon(a2: &argon2rs::Argon2,
         flags: cargon::ARGON2_FLAG_CLEAR_MEMORY,
     }
 }
+
+criterion_group!(
+    benches,
+    pasta_hash_static,
+    pasta_hash_dyn,
+    argon2_comparison
+);
+criterion_main!(benches);

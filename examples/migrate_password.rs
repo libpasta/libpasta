@@ -27,19 +27,31 @@ fn auth_user(user: &mut User) {
                 user.password_hash = new_hash;
             }
             println!("Password correct, new hash: \n{}", user.password_hash);
-        },
+        }
         HashUpdate::Failed => {
-            println!("Password incorrect, hash unchanged: \n{}",
-                     user.password_hash);
+            println!(
+                "Password incorrect, hash unchanged: \n{}",
+                user.password_hash
+            );
         }
     }
 }
 
 fn main() {
-    let mut users = vec![User { password_hash: deprected_hash("hunter2") },
-                         User { password_hash: deprected_hash("hunter3") },
-                         User { password_hash: deprected_hash("letmein") },
-                         User { password_hash: deprected_hash("password") }];
+    let mut users = vec![
+        User {
+            password_hash: deprected_hash("hunter2"),
+        },
+        User {
+            password_hash: deprected_hash("hunter3"),
+        },
+        User {
+            password_hash: deprected_hash("letmein"),
+        },
+        User {
+            password_hash: deprected_hash("password"),
+        },
+    ];
 
     migrate_users(&mut users);
     println!("Passwords migrated: {:?}", users);

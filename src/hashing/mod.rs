@@ -30,7 +30,6 @@ pub enum Algorithm {
     },
 }
 
-
 #[derive(Debug)]
 /// Represents the output of a password hashing algorithm.
 pub struct Output {
@@ -41,7 +40,6 @@ pub struct Output {
     /// The hash output
     pub hash: Vec<u8>,
 }
-
 
 impl Default for Algorithm {
     fn default() -> Self {
@@ -76,7 +74,10 @@ impl Algorithm {
     pub fn hash_with_salt(&self, password: &[u8], salt: &[u8]) -> Vec<u8> {
         match *self {
             Algorithm::Single(ref p) => p.compute(password, salt),
-            Algorithm::Nested { ref inner, ref outer } => {
+            Algorithm::Nested {
+                ref inner,
+                ref outer,
+            } => {
                 let innerput = inner.hash_with_salt(password, salt);
                 outer.compute(&innerput, salt)
             }
@@ -88,7 +89,10 @@ impl Algorithm {
     pub fn verify(&self, password: &[u8], salt: &[u8], hash: &[u8]) -> bool {
         match *self {
             Algorithm::Single(ref p) => p.verify(password, salt, hash),
-            Algorithm::Nested { ref inner, ref outer } => {
+            Algorithm::Nested {
+                ref inner,
+                ref outer,
+            } => {
                 let innerput = inner.hash_with_salt(password, salt);
                 outer.verify(&innerput, salt, hash)
             }
@@ -102,10 +106,7 @@ impl Algorithm {
             // Note: here we only decide to migrate if default is not <= a2
             // This includes the case that they are incomparable
             Algorithm::Nested { outer: ref a2, .. } => {
-                match a2.partial_cmp(prim) {
-                    Some(Ordering::Greater) | Some(Ordering::Equal) => false,
-                    _ => true,
-                }
+                !matches!(a2.partial_cmp(prim), Some(Ordering::Greater) | Some(Ordering::Equal))
             }
 
         }
@@ -129,18 +130,20 @@ impl Algorithm {
 
     pub(crate) fn update_key(&mut self, config: &config::Config) {
         match *self {
-            Algorithm::Single(ref mut p) =>  {
+            Algorithm::Single(ref mut p) => {
                 if let Some(newp) = p.update_key(config) {
                     *p = newp;
                 }
-            },
-            Algorithm::Nested { ref mut inner, ref mut outer } => {
+            }
+            Algorithm::Nested {
+                ref mut inner,
+                ref mut outer,
+            } => {
                 inner.update_key(config);
                 // outer.update_key(config).and_then(|new_outer| *outer = new_outer);
                 if let Some(newp) = outer.update_key(config) {
                     *outer = newp;
                 }
-
             }
         }
     }

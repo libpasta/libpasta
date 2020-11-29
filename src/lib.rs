@@ -43,57 +43,9 @@
 //! `libpasta` attempts to support some legacy formats. For example, the `bcrypt`
 //! format `$2y$...`.
 
-#![allow(unknown_lints)]
-#![deny(clippy::pedantic)]
-#![allow(
-    clippy::missing_docs_in_private_items, 
-    // we use fn new() -> Primitive for convenience
-    clippy::new_ret_no_self, 
-    clippy::range_plus_one, // `..=end` not yet stable
-)]
-#![deny(
-    const_err,
-    dead_code,
-    deprecated,
-    arithmetic_overflow,
-    improper_ctypes,
-    missing_docs,
-    mutable_transmutes,
-    no_mangle_const_items,
-    non_camel_case_types,
-    non_shorthand_field_patterns,
-    non_snake_case,
-    non_upper_case_globals,
-    overflowing_literals,
-    path_statements,
-    stable_features,
-    trivial_numeric_casts,
-    unconditional_recursion,
-    unknown_crate_types,
-    unreachable_code,
-    unsafe_code,
-    unstable_features,
-    unused_allocation,
-    unused_assignments,
-    unused_attributes,
-    unused_comparisons,
-    unused_extern_crates,
-    unused_features,
-    unused_imports,
-    unused_import_braces,
-    unused_must_use,
-    unused_mut,
-    unused_parens,
-    unused_qualifications,
-    unused_results,
-    unused_unsafe,
-    unused_variables,
-    variant_size_differences,
-    while_true,
-)]
 // Necessary for having benchmarks defined inline.
-#![cfg_attr(all(feature="bench", test), feature(test))]
-#![cfg_attr(all(feature="bench", test), allow(unstable_features))]
+#![cfg_attr(all(feature = "bench", test), feature(test))]
+#![cfg_attr(all(feature = "bench", test), allow(unstable_features))]
 
 extern crate data_encoding;
 #[macro_use]
@@ -122,7 +74,7 @@ pub mod errors {
     use serde_mcf;
     use std::{fmt, result};
     // Create the Error, ErrorKind, ResultExt, and Result types
-    error_chain!{
+    error_chain! {
         foreign_links {
             Deserialize(serde_mcf::errors::Error) #[doc = "Errors from de/serializing MCF password hashes."] ;
             Ring(ring::error::Unspecified) #[doc = "Errors originating from `ring`"] ;
@@ -138,26 +90,36 @@ pub mod errors {
         fn expect_report(self, msg: &str) -> Self::Inner;
     }
 
-    impl<T, E: fmt::Debug> ExpectReport for result::Result<T, E>  {
+    impl<T, E: fmt::Debug> ExpectReport for result::Result<T, E> {
         type Inner = T;
-        fn expect_report(self, msg: &str) -> T  {
-            self.unwrap_or_else(|_| panic!("{}\nIf you are seeing this message, you have encountered \
+        fn expect_report(self, msg: &str) -> T {
+            self.unwrap_or_else(|_| {
+                panic!(
+                    "{}\nIf you are seeing this message, you have encountered \
                 a situation we did not think was possible. Please submit a bug \
-                report at https://github.com/libpasta/libpasta/issues with this message.\n", msg))
+                report at https://github.com/libpasta/libpasta/issues with this message.\n",
+                    msg
+                )
+            })
         }
     }
 
-    impl<T> ExpectReport for Option<T>  {
+    impl<T> ExpectReport for Option<T> {
         type Inner = T;
-        fn expect_report(self, msg: &str) -> T  {
-            self.unwrap_or_else(|| panic!("{}\nIf you are seeing this message, you have encountered\
+        fn expect_report(self, msg: &str) -> T {
+            self.unwrap_or_else(|| {
+                panic!(
+                    "{}\nIf you are seeing this message, you have encountered\
                 a situation we did not think was possible. Please submit a bug\
-                report at https://github.com/libpasta/libpasta/issues with this message.\n", msg))
+                report at https://github.com/libpasta/libpasta/issues with this message.\n",
+                    msg
+                )
+            })
         }
     }
 }
 
-use errors::*;
+use errors::Result;
 use ring::rand::SecureRandom;
 
 #[macro_use]
@@ -165,8 +127,8 @@ mod bench;
 
 pub mod config;
 pub use config::Config;
-pub mod key;
 pub mod hashing;
+pub mod key;
 use hashing::Output;
 
 pub mod primitives;
@@ -185,6 +147,7 @@ pub mod sod;
 /// ## Panics
 /// A panic indicates a problem with the serialization mechanisms, and should
 /// be reported.
+#[must_use]
 pub fn hash_password(password: &str) -> String {
     config::DEFAULT_CONFIG.hash_password(password)
 }
@@ -194,13 +157,13 @@ pub fn hash_password(password: &str) -> String {
 #[doc(hidden)]
 pub fn hash_password_safe(password: &str) -> Result<String> {
     config::DEFAULT_CONFIG.hash_password_safe(password)
-
 }
 
 /// Verifies the provided password matches the inputted hash string.
 ///
 /// If there is any error in processing the hash or password, this
 /// will simply return `false`.
+#[must_use]
 pub fn verify_password(hash: &str, password: &str) -> bool {
     verify_password_safe(hash, password).unwrap_or(false)
 }
@@ -219,6 +182,7 @@ pub fn verify_password_safe(hash: &str, password: &str) -> Result<bool> {
 ///   - Password verified, but the hash did not need to be migrated
 ///   - Incorrect password (or other verification failure)
 #[derive(Debug, PartialEq)]
+#[must_use]
 pub enum HashUpdate {
     /// Password verification succeeded, with new string if migration was
     /// performed
@@ -238,9 +202,7 @@ pub fn verify_password_update_hash(hash: &str, password: &str) -> HashUpdate {
 #[doc(hidden)]
 pub fn verify_password_update_hash_safe(hash: &str, password: &str) -> Result<HashUpdate> {
     config::DEFAULT_CONFIG.verify_password_update_hash_safe(hash, password)
-
 }
-
 
 /// Migrate the input hash to the current recommended hash.
 ///
@@ -250,6 +212,7 @@ pub fn verify_password_update_hash_safe(hash: &str, password: &str) -> Result<Ha
 ///
 /// If the password is also available, the `verify_password_update_hash` should
 /// instead be used.
+#[must_use]
 pub fn migrate_hash(hash: &str) -> Option<String> {
     config::DEFAULT_CONFIG.migrate_hash(hash)
 }
@@ -258,7 +221,6 @@ pub fn migrate_hash(hash: &str) -> Option<String> {
 #[doc(hidden)]
 pub fn migrate_hash_safe(hash: &str) -> Result<Option<String>> {
     config::DEFAULT_CONFIG.migrate_hash_safe(hash)
-
 }
 
 fn gen_salt(rng: &dyn SecureRandom) -> Vec<u8> {
@@ -266,7 +228,9 @@ fn gen_salt(rng: &dyn SecureRandom) -> Vec<u8> {
     if rng.fill(&mut salt).is_ok() {
         salt
     } else {
-        error!("failed to get fresh randomness, relying on backup seed to generate pseudoranom output");
+        error!(
+            "failed to get fresh randomness, relying on backup seed to generate pseudoranom output"
+        );
         config::backup_gen_salt()
     }
 }
@@ -281,6 +245,9 @@ fn get_salt() -> Vec<u8> {
 
 #[cfg(test)]
 mod api_tests {
+    #![allow(clippy::clippy::shadow_unrelated)]
+    #![allow(clippy::non_ascii_literal)]
+
     use super::*;
     use config::DEFAULT_PRIM;
     use hashing::{Algorithm, Output};
@@ -313,7 +280,9 @@ mod api_tests {
         let pwd_hash: Output = serde_mcf::from_str(hash).unwrap();
         println!("{:?}", pwd_hash);
 
-        let expected_hash = pwd_hash.alg.hash_with_salt(password.as_bytes(), &pwd_hash.salt);
+        let expected_hash = pwd_hash
+            .alg
+            .hash_with_salt(password.as_bytes(), &pwd_hash.salt);
         assert_eq!(pwd_hash.hash, &expected_hash[..]);
         assert!(verify_password(&hash, password));
     }
@@ -333,7 +302,7 @@ mod api_tests {
 
         let params = Algorithm::Nested {
             inner: Box::new(Algorithm::Single(fast_prim.clone())),
-            outer: fast_prim.clone(),
+            outer: fast_prim,
         };
         let hash = params.hash(&password);
 
@@ -344,8 +313,8 @@ mod api_tests {
         let password = "hunter2";
         let hash = serde_mcf::to_string(&hash).unwrap();
         println!("{:?}", hash);
-        let _hash: Output = serde_mcf::from_str(&hash).unwrap();
-        println!("{:?}", _hash);
+        let hash_output: Output = serde_mcf::from_str(&hash).unwrap();
+        println!("{:?}", hash_output);
         assert!(verify_password(&hash, password));
     }
 
@@ -388,7 +357,7 @@ mod api_tests {
             pwd_hash.alg = Algorithm::default();
             assert!(pwd_hash.verify(&password));
         } else {
-            assert!(false, "hash was not verified/migrated");
+            panic!("hash was not verified/migrated");
         }
     }
 
@@ -398,11 +367,13 @@ mod api_tests {
         let password = "hunter2";
 
         // Missing param
-        let hash = "$$scrypt$ln=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
+        let hash =
+            "$$scrypt$ln=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
         assert!(!verify_password(&hash, password));
 
         // Incorrect hash-id
-        let hash = "$$nocrypt$ln=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
+        let hash =
+            "$$nocrypt$ln=14p=1$Yw/fI4D7b2PNqpUCg5UzKA$kp6humqf/GUV+6HQ/jND3gd8Zoz4VyBgGqk4DHt+k5c";
         assert!(!verify_password(&hash, password));
 
         // Missing salt
@@ -442,15 +413,21 @@ mod api_tests {
             HashUpdate::Verified(Some(x)) => x,
             _ => panic!("should have migrated"),
         };
-        assert_eq!(verify_password_update_hash(&hash, "hunter2"), HashUpdate::Verified(None));
-        assert_eq!(verify_password_update_hash(&hash, "*******"), HashUpdate::Failed);
+        assert_eq!(
+            verify_password_update_hash(&hash, "hunter2"),
+            HashUpdate::Verified(None)
+        );
+        assert_eq!(
+            verify_password_update_hash(&hash, "*******"),
+            HashUpdate::Failed
+        );
     }
 
     #[test]
     fn hash_and_key() {
         let password = "hunter2";
 
-        let alg = Algorithm::Single(Bcrypt::default()).into_wrapped(Hmac::default().into());
+        let alg = Algorithm::Single(Bcrypt::default()).into_wrapped(Hmac::default());
         let hash = serde_mcf::to_string(&alg.hash(&password)).unwrap();
         assert!(verify_password(&hash, password));
     }
