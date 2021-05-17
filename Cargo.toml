@@ -27,7 +27,7 @@ log = "0.4.11"
 num-traits = "0.2.14"
 ring = { version = "0.16.18", default-features = false, features = ["std"] }
 rpassword = "5.0.0"
-rust-crypto = "0.2.36"
+bcrypt = "0.9.0"
 serde = { version = "1.0.117", features = ["serde_derive"] }
 serde_mcf = "0.1.3"
 serde_yaml = "0.8.14"

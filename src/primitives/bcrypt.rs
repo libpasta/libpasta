@@ -1,8 +1,8 @@
 pub use self::native::Bcrypt;
 
 mod native {
-    extern crate crypto;
-    use self::crypto::bcrypt::bcrypt;
+    extern crate bcrypt;
+    use self::bcrypt::bcrypt;
 
     use primitives::{Primitive, PrimitiveImpl};
     use sod::Sod;
