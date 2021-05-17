@@ -59,15 +59,10 @@ impl Store for LocalStore {
 
     /// Get a key from the `KeyStore`.
     fn get_key(&self, id: &str) -> Option<Vec<u8>> {
-        if let Some(v) = self
-            .store
+        self.store
             .read()
             .expect("could not get read lock on key store")
             .get(id)
-        {
-            Some(v.clone())
-        } else {
-            None
-        }
+            .cloned()
     }
 }
