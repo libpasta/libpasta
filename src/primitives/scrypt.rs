@@ -17,7 +17,7 @@ mod native {
         r: u32,
         p: u32,
         /// Parameters used internally by `ring_pwhash`.
-        params: scrypt::ScryptParams,
+        params: scrypt::Params,
     }
 
     lazy_static! {
@@ -70,7 +70,7 @@ mod native {
                 log_n,
                 r,
                 p,
-                params: scrypt::ScryptParams::new(log_n, r, p).expect("invalid scrypt parameters"),
+                params: scrypt::Params::new(log_n, r, p).expect("invalid scrypt parameters"),
             }
         }
 
