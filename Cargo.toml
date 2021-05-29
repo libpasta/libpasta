@@ -1,6 +1,6 @@
 [package]
 name = "libpasta"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Sam Scott <me@samjs.co.uk>"]
 categories = ["authentication", "cryptography"]
 description = "All-inclusive password hashing library"
